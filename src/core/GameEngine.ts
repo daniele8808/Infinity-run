@@ -37,7 +37,7 @@ export class GameEngine {
 
     // Fog atmosferica leggera per la profondità.
     this.scene.fogMode = Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.0038;
+    this.scene.fogDensity = 0.0020;
     this.scene.fogColor = new Color3(0.78, 0.89, 0.95);
 
     this.engine.runRenderLoop(() => {

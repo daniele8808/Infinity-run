@@ -65,10 +65,16 @@ export class ChaseCamera {
       this.pos.copyFrom(fBack.pos)
         .addInPlace(fBack.right.scale(run.x * 0.55));
       // Scavalca le creste: la camera resta sopra il punto più alto della
-      // strada fra la sua posizione e il personaggio.
+      // strada nell'intero tratto visibile (dietro, sotto E davanti al
+      // personaggio), così guarda sempre leggermente in giù e oltre i
+      // dossi si vede la valle, non solo cielo.
       const fMid = this.track.getFrame(Math.max(0, run.d - back * 0.5));
-      const crest = Math.max(fBack.pos.y, fMid.pos.y, fHere.pos.y);
-      this.pos.y = crest + 3.1 + Math.min(1.6, Math.max(0, run.y) * 0.35);
+      const fA1 = this.track.getFrame(Math.min(this.track.totalLength - 1, run.d + ahead * 0.5));
+      const crest = Math.max(fBack.pos.y, fMid.pos.y, fHere.pos.y, fA1.pos.y, fAhead.pos.y);
+      // In salita la camera guadagna quota extra così oltre la cresta si
+      // vede il pendio e la valle, non una lama di cielo.
+      const climb = Math.max(0, fAhead.pos.y - fHere.pos.y);
+      this.pos.y = crest + 3.1 + Math.min(2.6, climb * 0.7) + Math.min(1.6, Math.max(0, run.y) * 0.35);
       // Target: avanti lungo il percorso (anticipa la curva).
       this.target.copyFrom(fAhead.pos).addInPlace(fAhead.right.scale(run.x * 0.3));
       this.target.y = fHere.pos.y + 1.4 + run.y * 0.55;

@@ -59,8 +59,40 @@ export class ForestTheme {
   private birds: { node: TransformNode; radius: number; speed: number; phase: number; center: Vector3; height: number }[] = [];
   private butterflies: { node: TransformNode; wings: Mesh[]; anchor: Vector3; phase: number }[] = [];
 
+  /** Campioni (x,z,y) del percorso per far salire il terreno con la strada. */
+  private roadSamples: { x: number; z: number; y: number }[] = [];
+
   constructor(private scene: Scene, private track: TrackSystem, private assetPath: string) {
     this.root = new TransformNode('forestTheme', scene);
+    const f = this.track.getFrame(0);
+    for (let d = 0; d < this.track.totalLength; d += 8) {
+      // Voragini e ponti restano su una conca: il terreno lì non sale.
+      const seg = this.track.segmentAt(d);
+      if (seg.kind === 'bridge' || this.track.isGap(d)) continue;
+      this.track.getFrame(d, f);
+      this.roadSamples.push({ x: f.pos.x, z: f.pos.z, y: f.pos.y });
+    }
+  }
+
+  /**
+   * Quota del terreno: rilievo dolce di base che, vicino al percorso,
+   * si fonde con la quota della strada (-2.3 m) così le salite diventano
+   * vere colline erbose e non terrapieni sospesi nel cielo.
+   */
+  terrainHeightAt(x: number, z: number): number {
+    const base = -3.6 + Math.sin(x * 0.021) * Math.cos(z * 0.017) * 1.6 + Math.sin(x * 0.008 + z * 0.011) * 2.2;
+    const R = 75;
+    let best = Infinity;
+    let bestY = 0;
+    for (const s of this.roadSamples) {
+      const dx = x - s.x, dz = z - s.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < best) { best = d2; bestY = s.y; }
+    }
+    if (best > R * R) return base;
+    const t = 1 - Math.sqrt(best) / R;
+    const w = t * t * (3 - 2 * t);
+    return base * (1 - w) + (bestY - 2.3) * w;
   }
 
   async build(): Promise<void> {
@@ -128,18 +160,20 @@ export class ForestTheme {
   private buildTerrain(): void {
     const bounds = this.trackBounds();
     const size = Math.max(bounds.sizeX, bounds.sizeZ) + 500;
-    const ground = MeshBuilder.CreateGround('valley', { width: size, height: size, subdivisions: 96 }, this.scene);
+    const ground = MeshBuilder.CreateGround('valley', { width: size, height: size, subdivisions: 160, updatable: true }, this.scene);
     ground.position.set(bounds.cx, -3.6, bounds.cz);
     const pos = ground.getVerticesData(VertexBuffer.PositionKind)!;
     const colors: number[] = [];
     for (let i = 0; i < pos.length; i += 3) {
       const x = pos[i] + bounds.cx, z = pos[i + 2] + bounds.cz;
-      const h = Math.sin(x * 0.021) * Math.cos(z * 0.017) * 1.6 + Math.sin(x * 0.008 + z * 0.011) * 2.2;
+      // Quota assoluta - quota del nodo (il ground sta a y=-3.6).
+      const h = this.terrainHeightAt(x, z) + 3.6;
       pos[i + 1] = h;
-      const g = 0.52 + 0.1 * Math.sin(x * 0.05 + z * 0.04) + h * 0.02;
-      colors.push(0.32 + h * 0.015, g, 0.28, 1);
+      const g = 0.52 + 0.1 * Math.sin(x * 0.05 + z * 0.04) + Math.min(0.08, h * 0.012);
+      colors.push(0.32 + Math.min(0.06, h * 0.008), g, 0.28, 1);
     }
     ground.updateVerticesData(VertexBuffer.PositionKind, pos);
+    ground.refreshBoundingInfo();
     ground.setVerticesData(VertexBuffer.ColorKind, colors);
     ground.createNormals(true);
     const mat = new StandardMaterial('valleyMat', this.scene);
@@ -208,9 +242,10 @@ export class ForestTheme {
         if (!tpl) continue;
         const off = frame.width / 2 + spec.minOff + rng() * (spec.maxOff - spec.minOff);
         const pos = frame.pos.add(frame.right.scale(side * off));
-        // I prop vicini seguono la quota strada, i lontani scendono verso la valle.
+        // I prop vicini seguono la quota strada, i lontani il pendio reale.
         const t = Math.min(1, (off - frame.width / 2) / 22);
-        pos.y = frame.pos.y * (1 - t * 0.85) + (-2.6) * t * 0.85 - 0.05;
+        const th = this.terrainHeightAt(pos.x, pos.z);
+        pos.y = frame.pos.y * (1 - t * 0.9) + (th + 0.05) * t * 0.9 - 0.05;
         const inst = tpl.createInstance(`p_${spec.file}_${d}_${side}`);
         inst.position = pos;
         const s = spec.scale[0] + rng() * (spec.scale[1] - spec.scale[0]);
