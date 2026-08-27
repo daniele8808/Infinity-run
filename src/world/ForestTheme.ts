@@ -221,6 +221,7 @@ export class ForestTheme {
       moon.material = mm;
       moon.position.set(160, 240, 420);
       moon.applyFog = false;
+      moon.infiniteDistance = true;
       moon.parent = this.root;
       const halo = MeshBuilder.CreateSphere('moonHalo', { diameter: 44, segments: 10 }, this.scene);
       const hm = new StandardMaterial('moonHaloMat', this.scene);
@@ -230,6 +231,7 @@ export class ForestTheme {
       halo.material = hm;
       halo.position.copyFrom(moon.position);
       halo.applyFog = false;
+      halo.infiniteDistance = true;
       halo.parent = this.root;
     }
     const mat = new StandardMaterial('skyMat', this.scene);
@@ -239,6 +241,9 @@ export class ForestTheme {
     sky.material = mat;
     sky.applyFog = false;
     sky.isPickable = false;
+    // Il cielo segue sempre la camera (skybox vero): il percorso può
+    // estendersi per chilometri senza mai "uscire" dalla sfera celeste.
+    sky.infiniteDistance = true;
     sky.parent = this.root;
   }
 
