@@ -108,9 +108,14 @@ export class FinishGate {
     ctx.fillStyle = primary.toHexString();
     ctx.fillRect(0, 0, 1024, 160);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 96px Trebuchet MS, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    // Autofit: riduce il font finché il testo entra nell'insegna.
+    let size = 96;
+    do {
+      ctx.font = `bold ${size}px Trebuchet MS, sans-serif`;
+      size -= 4;
+    } while (size > 24 && ctx.measureText(label).width > 960);
     ctx.fillText(label, 512, 86);
     tex.update();
     const bMat = new StandardMaterial('finishBannerMat', this.scene);
