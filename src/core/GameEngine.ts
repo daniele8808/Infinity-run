@@ -45,7 +45,21 @@ export class GameEngine {
       for (const fn of this.updaters) fn(dt);
       this.scene.render();
     });
-    window.addEventListener('resize', () => this.engine.resize());
+    // Rotazione mobile: iOS può notificare il resize in ritardo o non
+    // notificarlo affatto; osserviamo il canvas stesso e ridimensioniamo
+    // anche con un secondo passaggio ritardato.
+    const resizeNow = () => this.engine.resize();
+    const resizeSoon = () => {
+      resizeNow();
+      setTimeout(resizeNow, 120);
+      setTimeout(resizeNow, 400);
+    };
+    window.addEventListener('resize', resizeSoon);
+    window.addEventListener('orientationchange', resizeSoon);
+    window.visualViewport?.addEventListener('resize', resizeSoon);
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(resizeSoon).observe(canvas);
+    }
   }
 
   onUpdate(fn: (dt: number) => void): () => void {

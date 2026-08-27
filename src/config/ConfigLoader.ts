@@ -68,7 +68,7 @@ export const DEFAULTS: GameConfig = {
     timeBonusPerSecond: 25, comboStep: 10, maxMultiplier: 3,
   },
   rules: { startingLives: 3, invulnerabilityTime: 2, onGameOver: 'checkpoint' },
-  audio: { files: {}, musicVolume: 0.35, sfxVolume: 0.8 },
+  audio: { files: {}, musicVolume: 0.5, sfxVolume: 0.8 },
   leaderboard: { provider: 'local', maxEntries: 50 },
   strings: {
     loading: 'Caricamento…', tapToStart: 'Tocca per iniziare', insertName: 'INSERISCI IL TUO NOME',

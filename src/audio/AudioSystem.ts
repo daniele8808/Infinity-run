@@ -20,10 +20,17 @@ export class AudioSystem {
 
   constructor(private cfg: AudioConfig) {}
 
+  private silentEl: HTMLAudioElement | null = null;
+
   /** Da chiamare alla prima interazione utente (autoplay policy). */
   unlock(): void {
-    if (this.ctx) { this.ctx.resume(); return; }
+    if (this.ctx) { this.ctx.resume(); this.playSilentKeepalive(); return; }
     this.ctx = new AudioContext();
+    this.playSilentKeepalive();
+    // Se la pagina torna in primo piano, riattiva il contesto.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.ctx?.resume();
+    });
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.gain.value = this.cfg.sfxVolume;
     this.sfxGain.connect(this.ctx.destination);
@@ -31,6 +38,22 @@ export class AudioSystem {
     this.musicGain.gain.value = this.cfg.musicVolume;
     this.musicGain.connect(this.ctx.destination);
     this.loadFiles();
+  }
+
+  /**
+   * iOS silenzia il WebAudio quando l'interruttore laterale è su
+   * "silenzioso": un <audio> in loop (quasi muto) sposta la sessione
+   * audio in modalità playback e la musica torna udibile.
+   */
+  private playSilentKeepalive(): void {
+    if (this.silentEl) return;
+    const el = document.createElement('audio');
+    // WAV di 0,1s di silenzio, inline.
+    el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+    el.loop = true;
+    el.volume = 0.01;
+    el.setAttribute('playsinline', '');
+    el.play().then(() => { this.silentEl = el; }).catch(() => { /* riprova al prossimo gesto */ });
   }
 
   private async loadFiles(): Promise<void> {
