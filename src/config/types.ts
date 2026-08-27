@@ -137,6 +137,8 @@ export interface RulesConfig {
 }
 
 export interface AudioConfig {
+  /** Stile della musica procedurale di fallback. */
+  style?: 'adventure' | 'magic';
   /** File audio opzionali; se assenti si usa il fallback sintetizzato. */
   music?: string;
   files: Partial<Record<SfxName, string>>;

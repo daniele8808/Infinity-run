@@ -124,7 +124,13 @@ export class AudioSystem {
       src.start(t + at);
     };
     switch (name) {
-      case 'coin': beep(1180, 0.09, 0, 'triangle', 0.4); beep(1660, 0.14, 0.06, 'triangle', 0.35); break;
+      case 'coin':
+        if (this.cfg.style === 'magic') {
+          beep(1318, 0.22, 0, 'sine', 0.35); beep(1976, 0.3, 0.07, 'sine', 0.3); beep(2637, 0.34, 0.12, 'sine', 0.2);
+        } else {
+          beep(1180, 0.09, 0, 'triangle', 0.4); beep(1660, 0.14, 0.06, 'triangle', 0.35);
+        }
+        break;
       case 'jump': beep(330, 0.22, 0, 'square', 0.18, 420); break;
       case 'land': noise(0.1, 0, 0.25, 700); break;
       case 'hit': noise(0.25, 0, 0.5, 900); beep(190, 0.3, 0, 'sawtooth', 0.3, -120); break;
@@ -138,6 +144,62 @@ export class AudioSystem {
       case 'combo': beep(1320, 0.1, 0, 'triangle', 0.3); beep(1760, 0.12, 0.06, 'triangle', 0.3); break;
       case 'enemy': noise(0.2, 0, 0.4, 600); beep(150, 0.25, 0, 'sawtooth', 0.25, -60); break;
       case 'click': beep(700, 0.06, 0, 'sine', 0.25); break;
+    }
+  }
+
+  /** Sequencer 'magic': i-VI-III-VII in minore, campane con lunga coda. */
+  private scheduleMagic(): void {
+    const ctx = this.ctx!;
+    const bpm = 94 + this.intensity * 22;
+    const spb = 60 / bpm / 2;
+    const Am = [220, 261.63, 329.63], F = [174.61, 220, 261.63];
+    const C = [261.63, 329.63, 392], G = [196, 246.94, 293.66];
+    const Dm = [146.83, 174.61, 220], E = [164.81, 207.65, 246.94];
+    const SECTIONS = [
+      [Am, F, C, G],
+      [Am, C, F, G],
+      [Dm, Am, E, Am],
+    ];
+    const section = this.intensity < 0.35 ? 0 : this.intensity < 0.7 ? 1 : 2;
+    const lift = this.intensity > 0.85 ? Math.pow(2, 2 / 12) : 1;
+    const chords = SECTIONS[section].map((c) => c.map((f) => f * lift));
+    const sparkleNotes = [880, 1046.5, 1174.66, 1318.51].map((f) => f * lift);
+    while (this.nextBeat < ctx.currentTime + 0.3) {
+      const beat = this.beatIndex;
+      const bar = Math.floor(beat / 8) % 4;
+      const step = beat % 8;
+      const at = this.nextBeat;
+      // Campana/celesta: fondamentale + ottava, coda lunga.
+      const bell = (freq: number, vol: number, dur = spb * 3.2) => {
+        for (const [mul, v] of [[1, vol], [2, vol * 0.35]] as const) {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.value = freq * mul;
+          g.gain.setValueAtTime(0, at);
+          g.gain.linearRampToValueAtTime(v, at + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.001, at + dur);
+          o.connect(g).connect(this.musicGain);
+          o.start(at);
+          o.stop(at + dur + 0.05);
+        }
+      };
+      // Basso morbido sui quarti dispari.
+      if (step === 0 || step === 4) bell(chords[bar][0] / 2, 0.42, spb * 4);
+      // Arpeggio sognante: pattern sparso, non tutti gli ottavi.
+      if (step === 0 || step === 2 || step === 3 || step === 6) {
+        bell(chords[bar][(step * 2 + bar) % 3] * 2, 0.15 + this.intensity * 0.06);
+      }
+      // Scintillii acuti casuali (polvere di stelle).
+      if (Math.random() < 0.14 + this.intensity * 0.12) {
+        bell(sparkleNotes[Math.floor(Math.random() * sparkleNotes.length)], 0.09, spb * 2);
+      }
+      // Melodia eterea che entra a metà livello.
+      if (this.intensity > 0.35 && step === 1 && bar % 2 === 0) {
+        bell(chords[bar][2] * 2, 0.14, spb * 5);
+      }
+      this.nextBeat += spb;
+      this.beatIndex++;
     }
   }
 
@@ -165,8 +227,10 @@ export class AudioSystem {
   /**
    * Musica a sezioni legata al progresso del livello:
    * inizio sereno, sviluppo più ricco, tensione, finale che sale di tonalità.
+   * Lo stile 'magic' usa tonalità minore, campane e scintillii.
    */
   private schedule(): void {
+    if (this.cfg.style === 'magic') { this.scheduleMagic(); return; }
     const ctx = this.ctx!;
     const bpm = 112 + this.intensity * 30;
     const spb = 60 / bpm / 2; // ottavi
