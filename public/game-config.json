@@ -120,7 +120,7 @@
       "hit": "assets/audio/break.ogg",
       "fall": "assets/audio/fall.ogg"
     },
-    "musicVolume": 0.35,
+    "musicVolume": 0.45,
     "sfxVolume": 0.8
   },
   "leaderboard": {
