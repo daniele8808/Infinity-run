@@ -201,7 +201,7 @@ export class TrackBuilder {
       if (seg.kind !== 'bridge' && seg.kind !== 'narrow') continue;
       for (let d = seg.startD + 2; d < seg.startD + seg.length - 2; d += 4) {
         t.getFrame(d, frame);
-        const half = frame.width / 2 + 0.25;
+        const half = frame.width / 2 - 0.18;
         for (const side of [-1, 1]) {
           if (!template) {
             template = MeshBuilder.CreateBox('railPost', { width: 0.22, height: 1.0, depth: 0.22 }, this.scene);
@@ -210,7 +210,7 @@ export class TrackBuilder {
           }
           const inst = template.createInstance(`rail_${d}_${side}`);
           inst.position = frame.pos.add(frame.right.scale(side * half));
-          inst.position.y += 0.5;
+          inst.position.y += 0.42;
           inst.parent = this.root;
           inst.freezeWorldMatrix();
         }
@@ -220,8 +220,8 @@ export class TrackBuilder {
         const pathPoints: Vector3[] = [];
         for (let d = seg.startD + 1; d <= seg.startD + seg.length - 1; d += 3) {
           t.getFrame(d, frame);
-          const v = frame.pos.add(frame.right.scale(side * (frame.width / 2 + 0.25)));
-          v.y += 1.02;
+          const v = frame.pos.add(frame.right.scale(side * (frame.width / 2 - 0.18)));
+          v.y += 0.94;
           pathPoints.push(v);
         }
         if (pathPoints.length > 1) {
@@ -233,6 +233,40 @@ export class TrackBuilder {
       }
     }
     if (template) template.setEnabled(false);
+    this.buildBridgeAprons();
+  }
+
+  /** Fasce laterali dell'impalcato: il ponte ha spessore, non un foglio. */
+  private buildBridgeAprons(): void {
+    const t = this.track;
+    const frame = t.getFrame(0);
+    const mat = this.makeMat('bridgeApronMat');
+    mat.diffuseColor = this.palette.rail;
+    mat.backFaceCulling = false;
+    for (const seg of t.plan) {
+      if (seg.kind !== 'bridge') continue;
+      for (const side of [-1, 1]) {
+        const positions: number[] = [];
+        const indices: number[] = [];
+        let vi = 0;
+        for (let d = seg.startD; d <= seg.startD + seg.length; d += 2) {
+          t.getFrame(d, frame);
+          const edge = frame.pos.add(frame.right.scale(side * frame.width / 2));
+          positions.push(edge.x, edge.y + 0.06, edge.z, edge.x, edge.y - 0.5, edge.z);
+          if (vi > 0) indices.push(vi - 2, vi, vi + 1, vi - 2, vi + 1, vi - 1);
+          vi += 2;
+        }
+        const mesh = new Mesh(`bridgeApron_${seg.startD}_${side}`, this.scene);
+        const vd = new VertexData();
+        vd.positions = positions; vd.indices = indices;
+        vd.normals = [];
+        VertexData.ComputeNormals(positions, indices, vd.normals);
+        vd.applyToMesh(mesh);
+        mesh.material = mat;
+        mesh.parent = this.root;
+        mesh.freezeWorldMatrix();
+      }
+    }
   }
 
   /** Pareti rocciose nei segmenti canyon. */
@@ -290,10 +324,11 @@ export class TrackBuilder {
       if (seg.kind !== 'bridge') continue;
       const mid = seg.startD + seg.length / 2;
       this.track.getFrame(mid, frame);
-      const water = MeshBuilder.CreateGround(`water_${seg.startD}`, { width: 60, height: 14, subdivisions: 1 }, this.scene);
+      const water = MeshBuilder.CreateGround(`water_${seg.startD}`, { width: 46, height: 10, subdivisions: 1 }, this.scene);
       water.position = frame.pos.clone();
-      water.position.y -= 3.1;
-      water.rotation.y = Math.atan2(frame.right.x, frame.right.z);
+      water.position.y -= 3.3;
+      // Local X (46 m) di traverso, local Z (10 m) lungo il percorso.
+      water.rotation.y = Math.atan2(frame.forward.x, frame.forward.z);
       water.material = mat;
       water.parent = this.root;
     }
