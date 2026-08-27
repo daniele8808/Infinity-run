@@ -133,6 +133,7 @@ export class CollectibleSystem {
 
   update(dt: number, pd: number, px: number, py: number): void {
     this.time += dt;
+    this.window.maybeCull(dt, pd);
     const near = this.window.near(pd, 6, 60);
     for (const c of near) {
       if (!c.active) continue;

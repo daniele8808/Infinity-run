@@ -34,6 +34,26 @@ export function hits(
 export class EntityWindow<T extends TrackEntity> {
   items: T[] = [];
   private lo = 0;
+  private cullAcc = 99;
+  private lastEnabled = new WeakMap<object, boolean>();
+
+  /**
+   * Streaming per distanza: tiene attive solo le entità vicine al giocatore.
+   * Con migliaia di mesh sul percorso questo mantiene stabile il frame rate
+   * per tutta la partita (chiamare a ogni update: internamente è throttled).
+   */
+  maybeCull(dt: number, pd: number, behind = 90, ahead = 440): void {
+    this.cullAcc += dt;
+    if (this.cullAcc < 0.3) return;
+    this.cullAcc = 0;
+    for (const it of this.items) {
+      const on = it.active && it.d > pd - behind && it.d < pd + ahead;
+      if (this.lastEnabled.get(it.node) !== on) {
+        this.lastEnabled.set(it.node, on);
+        it.node.setEnabled(on);
+      }
+    }
+  }
 
   finalize(): void { this.items.sort((a, b) => a.d - b.d); }
 

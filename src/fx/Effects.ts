@@ -54,13 +54,15 @@ export class Effects {
     bm.emissiveColor = Color3.Black();
     bm.alpha = 0.28;
     bm.disableLighting = true;
+    // Polygon offset: elimina lo z-fighting (sfarfallio) con la strada.
+    bm.zOffset = -4;
     this.blobShadow.material = bm;
     this.blobShadow.isPickable = false;
   }
 
   /** Posiziona l'ombra blob: più piccola e tenue quando il personaggio salta. */
   updateBlobShadow(groundPos: { x: number; y: number; z: number }, jumpHeight: number): void {
-    this.blobShadow.position.set(groundPos.x, groundPos.y + 0.03, groundPos.z);
+    this.blobShadow.position.set(groundPos.x, groundPos.y + 0.06, groundPos.z);
     const k = Math.max(0.45, 1 - jumpHeight * 0.22);
     this.blobShadow.scaling.set(k, k, k);
     (this.blobShadow.material as StandardMaterial).alpha = 0.28 * k;

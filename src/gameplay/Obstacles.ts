@@ -160,6 +160,7 @@ export class ObstacleSystem {
 
   update(dt: number, pd: number, px: number, py: number, canHit: boolean): void {
     this.time += dt;
+    this.window.maybeCull(dt, pd);
     const near = this.window.near(pd, 8, 70);
     for (const o of near) {
       if (!o.active) continue;

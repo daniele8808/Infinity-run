@@ -168,6 +168,7 @@ export class PowerUpSystem {
 
   update(dt: number, pd: number, px: number, py: number): void {
     this.time += dt;
+    this.window.maybeCull(dt, pd);
     // Scadenze.
     for (const [kind, s] of [...this.active]) {
       s.remaining -= dt;

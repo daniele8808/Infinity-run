@@ -119,6 +119,7 @@ export class EnemySystem {
 
   update(dt: number, pd: number, px: number, py: number, canHit: boolean): void {
     this.time += dt;
+    this.window.maybeCull(dt, pd);
     const near = this.window.near(pd, 8, 70);
     for (const e of near) {
       if (!e.active) continue;

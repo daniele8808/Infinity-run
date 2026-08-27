@@ -43,8 +43,6 @@ export class CheckpointSystem {
         diameter: half * 2 + 1.5, thickness: 0.22, tessellation: 40,
       }, this.scene);
       arch.rotation.x = Math.PI / 2;
-      arch.rotation.z = Math.PI / 2;
-      arch.scaling.y = 0.8;
       arch.position.y = 0.2;
       arch.material = glowMat;
       arch.parent = root;
@@ -132,7 +130,6 @@ export class FinishGate {
     glowMat.alpha = 0.5;
     const arch = MeshBuilder.CreateTorus('finishArch', { diameter: half * 2 + 1.6, thickness: 0.35, tessellation: 48 }, this.scene);
     arch.rotation.x = Math.PI / 2;
-    arch.rotation.z = Math.PI / 2;
     arch.position.y = 0.2;
     arch.material = glowMat;
     arch.parent = this.root;
