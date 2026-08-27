@@ -64,7 +64,11 @@ export class ChaseCamera {
       // Posizione: dietro sulla spline, rialzata; segue in parte l'offset laterale.
       this.pos.copyFrom(fBack.pos)
         .addInPlace(fBack.right.scale(run.x * 0.55));
-      this.pos.y = Math.max(fBack.pos.y, fHere.pos.y) + 3.1 + Math.min(1.6, Math.max(0, run.y) * 0.35);
+      // Scavalca le creste: la camera resta sopra il punto più alto della
+      // strada fra la sua posizione e il personaggio.
+      const fMid = this.track.getFrame(Math.max(0, run.d - back * 0.5));
+      const crest = Math.max(fBack.pos.y, fMid.pos.y, fHere.pos.y);
+      this.pos.y = crest + 3.1 + Math.min(1.6, Math.max(0, run.y) * 0.35);
       // Target: avanti lungo il percorso (anticipa la curva).
       this.target.copyFrom(fAhead.pos).addInPlace(fAhead.right.scale(run.x * 0.3));
       this.target.y = fHere.pos.y + 1.4 + run.y * 0.55;
