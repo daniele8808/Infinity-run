@@ -20,6 +20,7 @@ export class Hud {
   private puRow!: HTMLElement;
   private hintEl!: HTMLElement;
   private vignette!: HTMLElement;
+  private fpsEl: HTMLElement | null = null;
   private chips = new Map<string, { el: HTMLElement; bar: HTMLElement }>();
   private maxLives: number;
 
@@ -38,6 +39,7 @@ export class Hud {
       <div class="hud-progress"><div class="fill"></div><div class="marker"></div></div>
       <div class="hud-hint">${isTouch ? cfg.strings.controlsHintMobile : cfg.strings.controlsHint}</div>
       <div class="hud-powerups"></div>
+      ${cfg.game.debugFps ? '<div class="hud-fps">-- fps</div>' : ''}
     `;
     parent.appendChild(this.root);
     this.livesEl = this.root.querySelector('.hud-lives')!;
@@ -49,6 +51,7 @@ export class Hud {
     this.puRow = this.root.querySelector('.hud-powerups')!;
     this.hintEl = this.root.querySelector('.hud-hint')!;
     this.vignette = this.root.querySelector('.vignette')!;
+    this.fpsEl = this.root.querySelector('.hud-fps');
     this.setLives(this.maxLives);
     // Tacche checkpoint sulla progress bar.
     const bar = this.root.querySelector('.hud-progress')!;
@@ -154,6 +157,13 @@ export class Hud {
     el.style.top = `${52 + Math.random() * 8}%`;
     this.root.appendChild(el);
     setTimeout(() => el.remove(), 850);
+  }
+
+  /** Indicatore diagnostico: fps correnti e mesh attive in scena. */
+  setFps(fps: number, activeMeshes: number): void {
+    if (!this.fpsEl) return;
+    this.fpsEl.textContent = `${Math.round(fps)} fps · ${activeMeshes} mesh`;
+    this.fpsEl.classList.toggle('low', fps < 25);
   }
 
   hitFlash(): void {

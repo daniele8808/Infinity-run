@@ -1,6 +1,5 @@
 import {
-  Color3, Color4, DirectionalLight, Engine, HemisphericLight, Scene,
-  ShadowGenerator, Vector3,
+  Color3, Color4, DirectionalLight, Engine, HemisphericLight, Scene, Vector3,
 } from '@babylonjs/core';
 
 /**
@@ -12,11 +11,14 @@ export class GameEngine {
   readonly scene: Scene;
   readonly sun: DirectionalLight;
   readonly ambient: HemisphericLight;
-  readonly shadows: ShadowGenerator;
   private updaters: ((dt: number) => void)[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
-    this.engine = new Engine(canvas, true, { stencil: true, antialias: true }, true);
+    // adaptToDeviceRatio spinto a DPR 3 su iPhone = 3x pixel da disegnare:
+    // cappiamo a 2x per un frame rate stabile su mobile.
+    this.engine = new Engine(canvas, true, { stencil: true, antialias: true }, false);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.engine.setHardwareScalingLevel(1 / dpr);
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color4(0.55, 0.8, 0.95, 1);
 
@@ -28,13 +30,6 @@ export class GameEngine {
     this.sun = new DirectionalLight('sun', new Vector3(-0.45, -1, 0.55).normalize(), this.scene);
     this.sun.intensity = 1.15;
     this.sun.diffuse = new Color3(1, 0.96, 0.85);
-    this.sun.shadowMinZ = -60;
-    this.sun.shadowMaxZ = 120;
-
-    this.shadows = new ShadowGenerator(1024, this.sun);
-    this.shadows.usePercentageCloserFiltering = true;
-    this.shadows.darkness = 0.55;
-
     // Fog atmosferica leggera per la profondità.
     this.scene.fogMode = Scene.FOGMODE_EXP2;
     this.scene.fogDensity = 0.0020;
@@ -84,8 +79,4 @@ export class GameEngine {
     this.scene.clearColor = new Color4(cc.r, cc.g, cc.b, 1);
   }
 
-  /** La luce del sole (e la sua shadow map) segue il giocatore. */
-  followSun(target: Vector3): void {
-    this.sun.position.copyFrom(target).addInPlace(new Vector3(18, 32, -22));
-  }
 }
