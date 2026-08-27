@@ -11,7 +11,7 @@ export async function loadConfig(url = 'game-config.json'): Promise<GameConfig> 
   return deepMerge(structuredClone(DEFAULTS), user) as GameConfig;
 }
 
-function deepMerge(base: any, extra: any): any {
+export function deepMerge(base: any, extra: any): any {
   if (extra === null || extra === undefined) return base;
   if (Array.isArray(extra) || typeof extra !== 'object') return extra;
   const out = { ...base };
@@ -81,5 +81,6 @@ export const DEFAULTS: GameConfig = {
     powerSuperJump: 'Super Salto', powerInvincibility: 'Invincibile',
     controlsHint: '← → muoviti · SPAZIO salta', controlsHintMobile: 'Trascina per muoverti · Tocca per saltare',
     iosInstallHint: '📲 Schermo intero su iPhone: apri in Safari → Condividi → Aggiungi alla schermata Home',
+    chooseHero: 'SCEGLI IL TUO EROE', chooseDuration: 'Durata livello',
   },
 };

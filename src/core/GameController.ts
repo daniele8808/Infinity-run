@@ -53,11 +53,12 @@ export class GameController {
   private readonly timeLimit: number;
   private playTime = 0;
 
-  constructor(canvas: HTMLCanvasElement, private cfg: GameConfig) {
+  constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string } = {}) {
     applyBrand(cfg);
     this.engine = new GameEngine(canvas);
     this.track = new TrackSystem(cfg.level, cfg.movement);
     this.themeDef = resolveTheme(cfg.environment.theme);
+    this.engine.applyLighting(this.themeDef.lighting);
     this.theme = this.themeDef.create(this.engine.scene, this.track, cfg.environment.assetPath);
     this.character = new CharacterSystem(this.engine.scene, cfg.character);
     this.run = new RunController(cfg, this.track, this.character, this.input, this.bus);
@@ -74,8 +75,10 @@ export class GameController {
     this.audio = new AudioSystem(cfg.audio);
     this.leaderboard = createLeaderboard(cfg.leaderboard);
     this.lives = cfg.rules.startingLives;
-    // Piccolo margine oltre la durata teorica per respawn e imprevisti.
-    this.timeLimit = Math.round(cfg.level.duration * 1.2);
+    // Il tempo limite deriva dalla lunghezza REALE del percorso (che ha un
+    // minimo strutturale), con margine per respawn e imprevisti.
+    const estSeconds = this.track.totalLength / (cfg.movement.baseSpeed * 1.05);
+    this.timeLimit = Math.ceil(Math.max(cfg.level.duration, estSeconds) * 1.3);
     this.timeLeft = this.timeLimit;
 
     (window as unknown as Record<string, unknown>).__game = this;
@@ -129,8 +132,13 @@ export class GameController {
     this.engine.onUpdate((dt) => this.update(dt));
 
     await new Promise((r) => setTimeout(r, 350));
-    this.phase = 'name';
-    this.nickname = await this.screens.nameEntry();
+    if (this.opts.nickname) {
+      this.nickname = this.opts.nickname;
+      this.screens.dismiss();
+    } else {
+      this.phase = 'name';
+      this.nickname = await this.screens.nameEntry();
+    }
     this.audio.unlock();
     await this.playIntro();
   }

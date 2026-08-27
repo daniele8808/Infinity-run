@@ -1,4 +1,4 @@
-import { Scene, TransformNode, Vector3 } from '@babylonjs/core';
+import { Color3, Mesh, MeshBuilder, Scene, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core';
 import type { CollectibleConfig, MovementConfig } from '../config/types';
 import type { TrackSystem } from '../track/TrackSystem';
 import type { EventBus } from '../core/EventBus';
@@ -30,13 +30,33 @@ export class CollectibleSystem {
   ) {}
 
   async build(): Promise<void> {
-    const template = await loadMergedProp(this.scene, this.cfg.model ?? '', 'coin');
+    let template: Mesh | null = null;
+    if (this.cfg.model) {
+      template = await loadMergedProp(this.scene, this.cfg.model, 'coin');
+    }
+    if (!template) {
+      // Fallback procedurale: sfera di luce (per i mondi magici o quando
+      // il cliente non fornisce un modello di collectible).
+      const orb = MeshBuilder.CreateSphere('orb', { diameter: 0.55, segments: 10 }, this.scene);
+      const mat = new StandardMaterial('orbMat', this.scene);
+      mat.emissiveColor = Color3.FromHexString('#9ff2ff');
+      mat.diffuseColor = Color3.FromHexString('#4dd8ff');
+      mat.alpha = 0.95;
+      orb.material = mat;
+      const halo = MeshBuilder.CreateSphere('orbHalo', { diameter: 0.95, segments: 8 }, this.scene);
+      const hm = new StandardMaterial('orbHaloMat', this.scene);
+      hm.emissiveColor = Color3.FromHexString('#5fd0ff');
+      hm.alpha = 0.22;
+      hm.disableLighting = true;
+      halo.material = hm;
+      template = Mesh.MergeMeshes([orb, halo], true, true, undefined, false, true);
+    }
+    if (!template) return;
     const rng = createRng(555);
     const root = new TransformNode('coins', this.scene);
 
     const addCoin = (d: number, x: number, y: number) => {
-      if (!template) return;
-      const inst = template.createInstance(`coin${this.total}`);
+      const inst = template!.createInstance(`coin${this.total}`);
       inst.scaling.setAll(this.cfg.scale);
       inst.parent = root;
       const coin: Coin = { d, x, y: y + 0.7, baseY: y + 0.7, magnetized: false, node: inst, active: true };
@@ -73,9 +93,8 @@ export class CollectibleSystem {
         }
         case 'gap': {
           // Arco che disegna la traiettoria del salto sopra la voragine.
-          const [ga, gb] = [seg.startD + seg.length * 0.34, seg.startD + seg.length * 0.63];
-          const mid = (ga + gb) / 2;
-          const w = (gb - ga) / 2 + 3;
+          const mid = seg.startD + seg.length / 2;
+          const w = 3.25 + 3;
           for (let i = -3; i <= 3; i++) {
             const d = mid + i * (w / 3.2);
             const y = 1.6 * (1 - (i / 3.5) * (i / 3.5));

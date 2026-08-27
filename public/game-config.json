@@ -157,6 +157,74 @@
     "powerInvincibility": "Invincibile",
     "controlsHint": "← → muoviti · SPAZIO salta",
     "controlsHintMobile": "Trascina per muoverti · Tocca per saltare",
-    "iosInstallHint": "📲 Schermo intero su iPhone: apri in Safari → Condividi → Aggiungi alla schermata Home"
-  }
+    "iosInstallHint": "📲 Schermo intero su iPhone: apri in Safari → Condividi → Aggiungi alla schermata Home",
+    "chooseHero": "SCEGLI IL TUO EROE",
+    "chooseDuration": "Durata livello"
+  },
+  "profiles": [
+    {
+      "id": "robot",
+      "label": "Robo l'Esploratore",
+      "icon": "🤖",
+      "description": "Valle verde al sole, monete dorate",
+      "overrides": {}
+    },
+    {
+      "id": "wizard",
+      "label": "Il Maghetto",
+      "icon": "🧙‍♂️",
+      "description": "Bosco incantato al chiaro di luna, essenze magiche",
+      "overrides": {
+        "character": {
+          "model": "assets/character/wizard.glb",
+          "scale": 0.55,
+          "yOffset": 0,
+          "runAnimSpeed": 1.15,
+          "animations": {
+            "idle": "Idle",
+            "greeting": "Spellcast_Raise",
+            "run": "Running_A",
+            "jump": "Jump_Full_Short",
+            "hit": "Hit_A",
+            "death": "Death_A",
+            "victory": "Cheer",
+            "powerUp": "Spellcast_Shoot",
+            "celebration": "Cheer"
+          },
+          "hideMeshes": [
+            "Spellbook",
+            "2H_Staff"
+          ]
+        },
+        "environment": {
+          "theme": "magic-forest"
+        },
+        "collectible": {
+          "model": "",
+          "score": 100
+        },
+        "brand": {
+          "accentColor": "#b06bff",
+          "uiBackground": "linear-gradient(160deg, rgba(20,16,50,0.94), rgba(8,8,26,0.97))"
+        },
+        "strings": {
+          "collectibles": "Essenze"
+        }
+      }
+    }
+  ],
+  "durationOptions": [
+    {
+      "label": "1:00",
+      "seconds": 60
+    },
+    {
+      "label": "2:00",
+      "seconds": 120
+    },
+    {
+      "label": "3:30",
+      "seconds": 210
+    }
+  ]
 }

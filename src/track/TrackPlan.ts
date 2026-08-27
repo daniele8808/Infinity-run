@@ -49,7 +49,7 @@ export function planLevel(level: LevelConfig, movement: MovementConfig): Planned
   const flexible = plan.filter((s) => !fixed.includes(s));
   const fixedLen = fixed.reduce((a, s) => a + s.length, 0);
   const flexLen = flexible.reduce((a, s) => a + s.length, 0);
-  const scale = Math.max(0.5, (targetLength - fixedLen) / flexLen);
+  const scale = Math.max(0.35, (targetLength - fixedLen) / flexLen);
   for (const s of flexible) s.length = Math.round(s.length * scale);
 
   // Compila startD.

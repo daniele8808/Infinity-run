@@ -28,7 +28,20 @@ export class CharacterSystem {
     model.root.parent = this.visual;
     model.root.scaling.setAll(this.cfg.scale);
     model.root.position.y = this.cfg.yOffset;
-    this.meshes = model.meshes;
+    // Nasconde gli accessori indesiderati (per nome di nodo/mesh).
+    const hidden = new Set<string>();
+    if (this.cfg.hideMeshes?.length) {
+      const patterns = this.cfg.hideMeshes.map((h) => h.toLowerCase());
+      const matches = (name: string) => patterns.some((p) => name.toLowerCase().startsWith(p));
+      for (const m of model.meshes) {
+        let node: { name: string; parent?: unknown } | null = m;
+        while (node) {
+          if (matches(node.name)) { m.setEnabled(false); hidden.add(m.name); break; }
+          node = (node as { parent: { name: string } | null }).parent as { name: string } | null;
+        }
+      }
+    }
+    this.meshes = model.meshes.filter((m) => !hidden.has(m.name));
     for (const g of model.animationGroups) {
       g.stop();
       this.groups.set(g.name, g);

@@ -40,6 +40,8 @@ export interface CharacterConfig {
   yOffset: number;
   /** Mappa nome-logico -> nome AnimationGroup nel GLB. */
   animations: AnimationMap;
+  /** Nodi/mesh del GLB da nascondere (es. accessori indesiderati). */
+  hideMeshes?: string[];
   /** Velocità di riproduzione della corsa a baseSpeed. */
   runAnimSpeed: number;
 }
@@ -165,7 +167,28 @@ export interface LeaderboardConfig {
   maxEntries: number;
 }
 
+/** Profilo selezionabile dal menu iniziale: override parziali del config. */
+export interface ProfileConfig {
+  id: string;
+  label: string;
+  /** Emoji/icona mostrata nella card di selezione. */
+  icon: string;
+  description?: string;
+  /** Override profondi applicati sopra il config base. */
+  overrides: Partial<GameConfig>;
+}
+
+/** Opzione di durata selezionabile dal menu. */
+export interface DurationOption {
+  label: string;
+  seconds: number;
+}
+
 export interface GameConfig {
+  /** Profili selezionabili (personaggio+mondo); vuoto = si parte diretti. */
+  profiles?: ProfileConfig[];
+  /** Durate proposte nel menu; vuoto = si usa level.duration. */
+  durationOptions?: DurationOption[];
   game: { name: string; version: string };
   brand: BrandConfig;
   character: CharacterConfig;
