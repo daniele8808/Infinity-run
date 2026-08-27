@@ -27,7 +27,7 @@ export class ChaseCamera {
   constructor(scene: Scene, private track: TrackSystem, private run: RunController) {
     this.camera = new FreeCamera('chaseCam', new Vector3(0, 3, -6), scene);
     this.camera.minZ = 0.3;
-    this.camera.maxZ = 1500;
+    this.camera.maxZ = 4000;
     this.camera.fov = this.baseFov;
     scene.activeCamera = this.camera;
   }
