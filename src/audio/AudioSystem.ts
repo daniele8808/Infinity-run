@@ -139,15 +139,25 @@ export class AudioSystem {
     this.started = false;
   }
 
-  /** Progressione A–F#m–D–E in pentatonica, layer che entrano con l'intensità. */
+  /**
+   * Musica a sezioni legata al progresso del livello:
+   * inizio sereno, sviluppo più ricco, tensione, finale che sale di tonalità.
+   */
   private schedule(): void {
     const ctx = this.ctx!;
-    const bpm = 112 + this.intensity * 26;
+    const bpm = 112 + this.intensity * 30;
     const spb = 60 / bpm / 2; // ottavi
-    const chords = [
-      [220, 277.2, 329.6], [185, 220, 277.2], [146.8, 220, 293.7], [164.8, 246.9, 329.6],
+    // Sezioni: I-vi-IV-V serena, poi vi-IV-I-V più emotiva, poi tensione modale.
+    const SECTIONS: number[][][] = [
+      [[220, 277.2, 329.6], [185, 220, 277.2], [146.8, 220, 293.7], [164.8, 246.9, 329.6]],
+      [[185, 220, 277.2], [146.8, 220, 293.7], [220, 277.2, 329.6], [164.8, 246.9, 329.6]],
+      [[196, 246.9, 293.7], [146.8, 185, 220], [164.8, 207.7, 246.9], [220, 261.6, 329.6]],
     ];
-    const penta = [440, 493.9, 554.4, 659.3, 740];
+    const section = this.intensity < 0.35 ? 0 : this.intensity < 0.7 ? 1 : 2;
+    // Gran finale: tutta la musica sale di un tono (energia da ultimo giro).
+    const lift = this.intensity > 0.85 ? Math.pow(2, 2 / 12) : 1;
+    const chords = SECTIONS[section].map((c) => c.map((f) => f * lift));
+    const penta = [440, 493.9, 554.4, 659.3, 740].map((f) => f * lift);
     while (this.nextBeat < ctx.currentTime + 0.25) {
       const beat = this.beatIndex;
       const bar = Math.floor(beat / 8) % 4;
@@ -165,8 +175,13 @@ export class AudioSystem {
         o.start(at);
         o.stop(at + dur + 0.05);
       };
-      // Basso sul quarto.
-      if (step % 2 === 0) note(chords[bar][0] / 2, spb * 1.8, 0.4, 'triangle', this.musicGain);
+      // Basso sul quarto (in ottava nel finale per più spinta).
+      if (step % 2 === 0) {
+        note(chords[bar][0] / 2, spb * 1.8, 0.4, 'triangle', this.musicGain);
+        if (this.intensity > 0.85 && step % 4 === 0) {
+          note(chords[bar][0], spb * 0.9, 0.22, 'triangle', this.musicGain);
+        }
+      }
       // Arpeggio.
       const arpFreq = chords[bar][(step * 2) % 3] * 2;
       note(arpFreq, spb * 0.9, 0.16 + this.intensity * 0.08, 'square', this.musicGain);

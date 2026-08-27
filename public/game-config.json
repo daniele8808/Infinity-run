@@ -1,5 +1,8 @@
 {
-  "game": { "name": "Avventura nella Valle", "version": "0.1.0" },
+  "game": {
+    "name": "Avventura nella Valle",
+    "version": "0.1.0"
+  },
   "brand": {
     "logo": "",
     "primaryColor": "#ffb703",
@@ -28,7 +31,24 @@
   },
   "movement": {
     "baseSpeed": 11,
-    "speedRamp": [[0, 1.0], [60, 1.1], [120, 1.2], [180, 1.28]],
+    "speedRamp": [
+      [
+        0,
+        1.0
+      ],
+      [
+        60,
+        1.1
+      ],
+      [
+        120,
+        1.2
+      ],
+      [
+        180,
+        1.28
+      ]
+    ],
     "lateralMode": "free",
     "lateralSpeed": 7.5,
     "laneCount": 3,
@@ -40,11 +60,18 @@
   "level": {
     "duration": 210,
     "layout": "auto",
-    "checkpoints": [0.25, 0.5, 0.75],
+    "checkpoints": [
+      0.25,
+      0.5,
+      0.75
+    ],
     "trackWidth": 7,
     "seed": 20260827
   },
-  "environment": { "theme": "forest", "assetPath": "assets/environment/forest" },
+  "environment": {
+    "theme": "forest",
+    "assetPath": "assets/environment/forest"
+  },
   "collectible": {
     "model": "assets/collectibles/coin.glb",
     "score": 100,
@@ -52,13 +79,25 @@
     "scale": 1.6
   },
   "powerUps": {
-    "enabled": ["shield", "magnet", "doubleScore"],
-    "durations": { "magnet": 9, "doubleScore": 10, "speedBoost": 6, "superJump": 8, "invincibility": 6 },
+    "enabled": [
+      "shield",
+      "magnet",
+      "doubleScore"
+    ],
+    "durations": {
+      "magnet": 9,
+      "doubleScore": 10,
+      "speedBoost": 6,
+      "superJump": 8,
+      "invincibility": 6
+    },
     "score": 250,
     "magnetRadius": 6,
     "speedBoostFactor": 1.45
   },
-  "enemy": { "scale": 1 },
+  "enemy": {
+    "scale": 1
+  },
   "scoring": {
     "collectible": 100,
     "powerUp": 250,
@@ -84,7 +123,10 @@
     "musicVolume": 0.35,
     "sfxVolume": 0.8
   },
-  "leaderboard": { "provider": "local", "maxEntries": 50 },
+  "leaderboard": {
+    "provider": "local",
+    "maxEntries": 50
+  },
   "strings": {
     "loading": "Caricamento…",
     "tapToStart": "Tocca per iniziare",
@@ -114,6 +156,7 @@
     "powerSuperJump": "Super Salto",
     "powerInvincibility": "Invincibile",
     "controlsHint": "← → muoviti · SPAZIO salta",
-    "controlsHintMobile": "Trascina per muoverti · Tocca per saltare"
+    "controlsHintMobile": "Trascina per muoverti · Tocca per saltare",
+    "iosInstallHint": "📲 Schermo intero su iPhone: apri in Safari → Condividi → Aggiungi alla schermata Home"
   }
 }

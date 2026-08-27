@@ -2,6 +2,9 @@ import '@babylonjs/loaders/glTF';
 import './ui/style.css';
 import { loadConfig } from './config/ConfigLoader';
 import { GameController } from './core/GameController';
+import { registerServiceWorker } from './ui/fullscreen';
+
+registerServiceWorker();
 
 async function boot(): Promise<void> {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;

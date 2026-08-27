@@ -1,5 +1,6 @@
 import type { GameConfig } from '../config/types';
 import type { LeaderboardEntry } from '../leaderboard/Leaderboard';
+import { isIos, isStandalone, tryFullscreen } from './fullscreen';
 
 export interface RunStats {
   score: number;
@@ -21,10 +22,6 @@ export class Screens {
 
   constructor(parent: HTMLElement, private cfg: GameConfig) {
     this.parent = parent;
-    const rotate = document.createElement('div');
-    rotate.className = 'rotate-notice';
-    rotate.textContent = cfg.strings.rotateDevice;
-    parent.appendChild(rotate);
   }
 
   private mount(el: HTMLElement): void {
@@ -68,16 +65,21 @@ export class Screens {
     return new Promise((resolve) => {
       const el = document.createElement('div');
       el.className = 'screen';
+      const iosHint = isIos() && !isStandalone()
+        ? `<div class="sub install-hint">${this.cfg.strings.iosInstallHint ?? ''}</div>` : '';
       el.innerHTML = `
         ${this.brandHeader()}
         <h2>${this.cfg.strings.insertName}</h2>
         <input class="name-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="AAA" />
         <button class="btn">${this.cfg.strings.play}</button>
+        ${iosHint}
       `;
       this.mount(el);
       const input = el.querySelector<HTMLInputElement>('.name-input')!;
       const btn = el.querySelector<HTMLButtonElement>('.btn')!;
       const submit = () => {
+        // Dentro il gesto utente: fullscreen nativo dove supportato (Android/desktop).
+        tryFullscreen();
         const name = (input.value.trim() || 'PLAYER').toUpperCase().slice(0, 12);
         this.dismiss();
         resolve(name);

@@ -275,20 +275,6 @@ html, body {
 .lb-row:nth-child(2) .pos { color: #c0c0c0; opacity: 1; }
 .lb-row:nth-child(3) .pos { color: #cd7f32; opacity: 1; }
 
-.rotate-notice {
-  position: fixed; inset: 0;
-  display: none;
-  align-items: center; justify-content: center;
-  background: var(--ui-bg);
-  z-index: 50;
-  font-size: 22px; font-weight: 800;
-  text-align: center; padding: 30px;
-  pointer-events: auto;
-}
-@media (orientation: portrait) and (max-width: 780px) {
-  .rotate-notice { display: flex; }
-}
-
 .countdown-num {
   position: absolute; top: 42%; left: 50%;
   transform: translate(-50%, -50%);
@@ -306,3 +292,21 @@ html, body {
   80% { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%,-50%) scale(.8); }
 }
+
+.install-hint {
+  font-size: 13px;
+  opacity: .75;
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+/* Adattamenti portrait: si può giocare anche in verticale. */
+@media (orientation: portrait) {
+  .hud-progress { width: 78vw; }
+  .hud-hint { bottom: 96px; }
+  .hud-powerups { bottom: max(16px, env(safe-area-inset-bottom)); }
+}
+
+/* Safe area per notch/isola dinamica in landscape. */
+.hud-top { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+.screen { padding-left: max(24px, env(safe-area-inset-left)); padding-right: max(24px, env(safe-area-inset-right)); }
