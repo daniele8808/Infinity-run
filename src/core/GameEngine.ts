@@ -67,6 +67,23 @@ export class GameEngine {
     return () => { this.updaters = this.updaters.filter((f) => f !== fn); };
   }
 
+  /** Applica l'atmosfera del tema (luci, fog, colore di fondo). */
+  applyLighting(l: {
+    ambientIntensity: number; ambientColor: string; groundColor: string;
+    sunIntensity: number; sunColor: string;
+    fogColor: string; fogDensity: number; clearColor: string;
+  }): void {
+    this.ambient.intensity = l.ambientIntensity;
+    this.ambient.diffuse = Color3.FromHexString(l.ambientColor);
+    this.ambient.groundColor = Color3.FromHexString(l.groundColor);
+    this.sun.intensity = l.sunIntensity;
+    this.sun.diffuse = Color3.FromHexString(l.sunColor);
+    this.scene.fogColor = Color3.FromHexString(l.fogColor);
+    this.scene.fogDensity = l.fogDensity;
+    const cc = Color3.FromHexString(l.clearColor);
+    this.scene.clearColor = new Color4(cc.r, cc.g, cc.b, 1);
+  }
+
   /** La luce del sole (e la sua shadow map) segue il giocatore. */
   followSun(target: Vector3): void {
     this.sun.position.copyFrom(target).addInPlace(new Vector3(18, 32, -22));

@@ -37,6 +37,49 @@ const PROPS: PropSpec[] = [
   { file: 'tree_stump_1.glb', weight: 1, scale: [1.0, 1.4], minOff: 1.5, maxOff: 12 },
 ];
 
+/** Parametri di variante del tema (giorno sereno / notte magica). */
+export interface ForestVariant {
+  night: boolean;
+  skyStops: [string, string, string, string];
+  terrainMul: [number, number, number];
+  mountainColor: string;
+  mountainCap: string;
+  cloudCount: number;
+  birdCount: number;
+  fireflyColors: string[];
+  fireflyCount: number;
+  moteColor: [number, number, number, number];
+  glowMushrooms: boolean;
+}
+
+export const DAY_VARIANT: ForestVariant = {
+  night: false,
+  skyStops: ['#3d9be9', '#8ecdf2', '#d9ecf5', '#ffe8c4'],
+  terrainMul: [1, 1, 1],
+  mountainColor: '#7d9b8a',
+  mountainCap: '#f2f7f7',
+  cloudCount: 14,
+  birdCount: 4,
+  fireflyColors: ['#ff5d8f', '#ffd166', '#8338ec', '#06d6a0'],
+  fireflyCount: 12,
+  moteColor: [1, 1, 0.85, 0.28],
+  glowMushrooms: false,
+};
+
+export const NIGHT_VARIANT: ForestVariant = {
+  night: true,
+  skyStops: ['#070b22', '#141d4d', '#2a2564', '#4a2a6b'],
+  terrainMul: [0.38, 0.42, 0.75],
+  mountainColor: '#3d4463',
+  mountainCap: '#aebbe8',
+  cloudCount: 5,
+  birdCount: 0,
+  fireflyColors: ['#ffe066', '#b6ff66', '#66ffd9', '#ffd166'],
+  fireflyCount: 26,
+  moteColor: [1, 0.9, 0.5, 0.5],
+  glowMushrooms: true,
+};
+
 export const FOREST_PALETTE: TrackPalette = {
   road: Color3.FromHexString('#d8b57f'),
   roadAlt: Color3.FromHexString('#cfa971'),
@@ -62,7 +105,12 @@ export class ForestTheme {
   /** Campioni (x,z,y) del percorso per far salire il terreno con la strada. */
   private roadSamples: { x: number; z: number; y: number }[] = [];
 
-  constructor(private scene: Scene, private track: TrackSystem, private assetPath: string) {
+  constructor(
+    private scene: Scene,
+    private track: TrackSystem,
+    private assetPath: string,
+    private variant: ForestVariant = DAY_VARIANT,
+  ) {
     this.root = new TransformNode('forestTheme', scene);
     const f = this.track.getFrame(0);
     for (let d = 0; d < this.track.totalLength; d += 8) {
@@ -136,16 +184,54 @@ export class ForestTheme {
 
   private buildSky(): void {
     const sky = MeshBuilder.CreateSphere('sky', { diameter: 1400, sideOrientation: Mesh.BACKSIDE, segments: 12 }, this.scene);
-    const tex = new DynamicTexture('skyTex', { width: 8, height: 256 }, this.scene, false);
+    const v = this.variant;
+    const W = v.night ? 1024 : 8;
+    const H = v.night ? 512 : 256;
+    const tex = new DynamicTexture('skyTex', { width: W, height: H }, this.scene, false);
     const ctx = tex.getContext() as CanvasRenderingContext2D;
-    const grad = ctx.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, '#3d9be9');
-    grad.addColorStop(0.55, '#8ecdf2');
-    grad.addColorStop(0.8, '#d9ecf5');
-    grad.addColorStop(1, '#ffe8c4');
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, v.skyStops[0]);
+    grad.addColorStop(0.55, v.skyStops[1]);
+    grad.addColorStop(0.8, v.skyStops[2]);
+    grad.addColorStop(1, v.skyStops[3]);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 8, 256);
+    ctx.fillRect(0, 0, W, H);
+    if (v.night) {
+      // Stelle nella metà alta del cielo.
+      const rng = createRng(12);
+      for (let i = 0; i < 420; i++) {
+        const x = rng() * W;
+        const y = rng() * rng() * H * 0.68;
+        const r = 0.5 + rng() * 1.3;
+        ctx.fillStyle = rng() < 0.15 ? '#cfe0ff' : '#ffffff';
+        ctx.globalAlpha = 0.35 + rng() * 0.65;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
     tex.update();
+    if (v.night) {
+      // Luna piena con alone.
+      const moon = MeshBuilder.CreateSphere('moon', { diameter: 26, segments: 12 }, this.scene);
+      const mm = new StandardMaterial('moonMat', this.scene);
+      mm.emissiveColor = Color3.FromHexString('#fdf6d8');
+      mm.disableLighting = true;
+      moon.material = mm;
+      moon.position.set(160, 240, 420);
+      moon.applyFog = false;
+      moon.parent = this.root;
+      const halo = MeshBuilder.CreateSphere('moonHalo', { diameter: 44, segments: 10 }, this.scene);
+      const hm = new StandardMaterial('moonHaloMat', this.scene);
+      hm.emissiveColor = Color3.FromHexString('#fdf6d8');
+      hm.alpha = 0.16;
+      hm.disableLighting = true;
+      halo.material = hm;
+      halo.position.copyFrom(moon.position);
+      halo.applyFog = false;
+      halo.parent = this.root;
+    }
     const mat = new StandardMaterial('skyMat', this.scene);
     mat.emissiveTexture = tex;
     mat.disableLighting = true;
@@ -170,7 +256,8 @@ export class ForestTheme {
       const h = this.terrainHeightAt(x, z) + 3.6;
       pos[i + 1] = h;
       const g = 0.52 + 0.1 * Math.sin(x * 0.05 + z * 0.04) + Math.min(0.08, h * 0.012);
-      colors.push(0.32 + Math.min(0.06, h * 0.008), g, 0.28, 1);
+      const m = this.variant.terrainMul;
+      colors.push((0.32 + Math.min(0.06, h * 0.008)) * m[0], g * m[1], 0.28 * m[2], 1);
     }
     ground.updateVerticesData(VertexBuffer.PositionKind, pos);
     ground.refreshBoundingInfo();
@@ -190,10 +277,10 @@ export class ForestTheme {
     const bounds = this.trackBounds();
     const rng = createRng(777);
     const mat = new StandardMaterial('mountainMat', this.scene);
-    mat.diffuseColor = Color3.FromHexString('#7d9b8a');
+    mat.diffuseColor = Color3.FromHexString(this.variant.mountainColor);
     mat.specularColor = Color3.Black();
     const capMat = new StandardMaterial('mountainCapMat', this.scene);
-    capMat.diffuseColor = Color3.FromHexString('#f2f7f7');
+    capMat.diffuseColor = Color3.FromHexString(this.variant.mountainCap);
     capMat.specularColor = Color3.Black();
     const R = Math.max(bounds.sizeX, bounds.sizeZ) / 2 + 420;
     for (let i = 0; i < 16; i++) {
@@ -225,6 +312,19 @@ export class ForestTheme {
     for (const p of PROPS) {
       const mesh = await loadMergedProp(this.scene, `${this.assetPath}/${p.file}`, p.file);
       if (mesh) templates.set(p.file, mesh);
+    }
+    // Di notte i funghi diventano protagonisti e brillano.
+    if (this.variant.glowMushrooms) {
+      for (const [file, tpl] of templates) {
+        if (!file.startsWith('mushroom')) continue;
+        const mats = tpl.material && 'subMaterials' in tpl.material
+          ? ((tpl.material as unknown as { subMaterials: StandardMaterial[] }).subMaterials ?? [])
+          : [tpl.material as StandardMaterial];
+        for (const m of mats) {
+          if (m && 'emissiveColor' in m) m.emissiveColor = Color3.FromHexString('#69e6ff').scale(0.85);
+        }
+      }
+      for (const p of PROPS) if (p.file.startsWith('mushroom')) p.weight = 4;
     }
     const totalWeight = PROPS.reduce((a, p) => a + p.weight, 0);
     const frame = this.track.getFrame(0);
@@ -268,7 +368,7 @@ export class ForestTheme {
     const rng = createRng(99);
     const files = ['cloud_1.glb', 'cloud_2.glb', 'cloud_3.glb'];
     const bounds = this.trackBounds();
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < this.variant.cloudCount; i++) {
       const f = files[i % files.length];
       const mesh = await loadMergedProp(this.scene, `${this.assetPath}/${f}`, `${f}_${i}`);
       if (!mesh) continue;
@@ -277,7 +377,7 @@ export class ForestTheme {
       mesh.parent = node;
       mesh.position.setAll(0);
       const cm = mesh.material as StandardMaterial;
-      if (cm && 'emissiveColor' in cm) cm.emissiveColor = new Color3(0.45, 0.47, 0.5);
+      if (cm && 'emissiveColor' in cm) cm.emissiveColor = this.variant.night ? new Color3(0.1, 0.11, 0.18) : new Color3(0.45, 0.47, 0.5);
       const s = 6 + rng() * 9;
       node.scaling.setAll(s);
       node.position.set(
@@ -294,7 +394,7 @@ export class ForestTheme {
     const rng = createRng(2025);
     const bounds = this.trackBounds();
     const files = ['parrot.glb', 'flamingo.glb'];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < this.variant.birdCount; i++) {
       try {
         const model = await loadModel(this.scene, `${this.assetPath}/${files[i % 2]}`, `bird${i}`);
         model.animationGroups.forEach((g) => g.start(true, 0.9 + rng() * 0.4));
@@ -316,9 +416,18 @@ export class ForestTheme {
 
   private buildButterflies(): void {
     const rng = createRng(31);
-    const colors = ['#ff5d8f', '#ffd166', '#8338ec', '#06d6a0'];
-    const anchors = this.flowerAnchors.length ? this.flowerAnchors : [new Vector3(0, 1, 10)];
-    for (let i = 0; i < Math.min(12, anchors.length * 2); i++) {
+    const colors = this.variant.fireflyColors;
+    const anchors = [...this.flowerAnchors];
+    if (this.variant.night) {
+      // Lucciole distribuite lungo tutto il percorso.
+      const f = this.track.getFrame(0);
+      for (let d = 20; d < this.track.totalLength; d += 60 + rng() * 60) {
+        this.track.getFrame(d, f);
+        anchors.push(f.pos.add(f.right.scale((rng() * 2 - 1) * 8)).add(new Vector3(0, 0.6, 0)));
+      }
+    }
+    if (!anchors.length) anchors.push(new Vector3(0, 1, 10));
+    for (let i = 0; i < Math.min(this.variant.fireflyCount, anchors.length * 2); i++) {
       const node = new TransformNode(`butterfly${i}`, this.scene);
       const mat = new StandardMaterial(`bflyMat${i}`, this.scene);
       mat.emissiveColor = Color3.FromHexString(colors[i % colors.length]);
@@ -346,8 +455,9 @@ export class ForestTheme {
     ps.emitter = new Vector3(0, 3, 0);
     ps.minEmitBox = new Vector3(-25, -2, -10);
     ps.maxEmitBox = new Vector3(25, 8, 60);
-    ps.color1 = new Color4(1, 1, 0.85, 0.28);
-    ps.color2 = new Color4(0.85, 1, 0.7, 0.18);
+    const mc = this.variant.moteColor;
+    ps.color1 = new Color4(mc[0], mc[1], mc[2], mc[3]);
+    ps.color2 = new Color4(mc[0] * 0.85, mc[1], mc[2] * 0.8, mc[3] * 0.7);
     ps.colorDead = new Color4(1, 1, 1, 0);
     ps.blendMode = ParticleSystem.BLENDMODE_STANDARD;
     ps.minSize = 0.03; ps.maxSize = 0.09;

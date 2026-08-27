@@ -56,8 +56,10 @@ export class TrackSystem {
         this.samples.push({ x, y, z, yaw, d, width: seg.width, kind: seg.kind, curvature: yawRate });
       }
       if (seg.kind === 'gap') {
-        // La voragine occupa la parte centrale del segmento: bordi atterrabili.
-        this.gaps.push([seg.startD + seg.length * 0.34, seg.startD + seg.length * 0.63]);
+        // Ampiezza assoluta (~6.5 m): saltabile con un buon salto singolo,
+        // comoda col doppio salto, qualunque sia la lunghezza del segmento.
+        const mid = seg.startD + seg.length / 2;
+        this.gaps.push([mid - 3.25, mid + 3.25]);
       }
       if (seg.kind === 'checkpoint') {
         this.checkpoints.push({ index: seg.checkpointIndex ?? 0, d: seg.startD + seg.length / 2 });
