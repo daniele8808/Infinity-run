@@ -29,6 +29,7 @@ export class TrackBuilder {
   constructor(private scene: Scene, private track: TrackSystem, private palette: TrackPalette) {
     this.root = new TransformNode('trackRoot', scene);
     this.buildRoad();
+    this.buildCaps();
     this.buildRails();
     this.buildCanyonWalls();
     this.buildWater();
@@ -133,6 +134,55 @@ export class TrackBuilder {
     VertexData.ComputeNormals(positions, indices, vd.normals);
     vd.applyToMesh(mesh);
     const mat = this.makeMat('skirtMat');
+    mat.backFaceCulling = false;
+    mesh.material = mat;
+    mesh.parent = this.root;
+    mesh.freezeWorldMatrix();
+  }
+
+  /**
+   * Pareti di chiusura della sezione stradale: senza di queste la strada
+   * appare cava all'inizio, ai bordi delle voragini e alle testate dei ponti.
+   */
+  private buildCaps(): void {
+    const t = this.track;
+    const p = this.palette;
+    // Punti in cui il blocco solido della strada si interrompe.
+    const capDs: number[] = [0.15, t.totalLength - 0.15];
+    for (const [a, b] of t.gaps) { capDs.push(a - 0.1, b + 0.1); }
+    for (const seg of t.plan) {
+      if (seg.kind === 'bridge') { capDs.push(seg.startD - 0.1, seg.startD + seg.length + 0.1); }
+    }
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const colors: number[] = [];
+    const frame = t.getFrame(0);
+    let vi = 0;
+    for (const d of capDs) {
+      const dd = Math.min(Math.max(d, 0.05), t.totalLength - 0.05);
+      t.getFrame(dd, frame);
+      const half = frame.width / 2;
+      const l = frame.pos.add(frame.right.scale(-half));
+      const r = frame.pos.add(frame.right.scale(half));
+      // Quad verticale: bordo strada in alto, fondo skirt in basso.
+      positions.push(
+        l.x, l.y + 0.02, l.z,
+        r.x, r.y + 0.02, r.z,
+        r.x, r.y - SKIRT_DEPTH, r.z,
+        l.x, l.y - SKIRT_DEPTH, l.z,
+      );
+      const top = p.skirt, bot = p.skirt.scale(0.55);
+      colors.push(top.r, top.g, top.b, 1, top.r, top.g, top.b, 1, bot.r, bot.g, bot.b, 1, bot.r, bot.g, bot.b, 1);
+      indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+      vi += 4;
+    }
+    const mesh = new Mesh('roadCaps', this.scene);
+    const vd = new VertexData();
+    vd.positions = positions; vd.indices = indices; vd.colors = colors;
+    vd.normals = [];
+    VertexData.ComputeNormals(positions, indices, vd.normals);
+    vd.applyToMesh(mesh);
+    const mat = this.makeMat('roadCapsMat');
     mat.backFaceCulling = false;
     mesh.material = mat;
     mesh.parent = this.root;

@@ -80,5 +80,6 @@ export const DEFAULTS: GameConfig = {
     powerShield: 'Scudo', powerMagnet: 'Magnete', powerDoubleScore: 'Punti x2', powerSpeedBoost: 'Turbo',
     powerSuperJump: 'Super Salto', powerInvincibility: 'Invincibile',
     controlsHint: '← → muoviti · SPAZIO salta', controlsHintMobile: 'Trascina per muoverti · Tocca per saltare',
+    iosInstallHint: '📲 Schermo intero su iPhone: apri in Safari → Condividi → Aggiungi alla schermata Home',
   },
 };

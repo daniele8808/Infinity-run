@@ -37,6 +37,14 @@ export class ChaseCamera {
 
   update(dt: number): void {
     this.t += dt;
+    // In portrait l'orizzontale si stringe: allarga il campo visivo.
+    const aspect = this.camera.getEngine().getAspectRatio(this.camera);
+    const base = aspect < 1 ? 1.18 : 0.92;
+    if (base !== this.baseFov) {
+      const boosted = this.fovTarget > this.baseFov;
+      this.baseFov = base;
+      this.fovTarget = boosted ? base + 0.16 : base;
+    }
     const run = this.run;
     if (this.introMode) {
       // Davanti al personaggio, che guarda in camera.
