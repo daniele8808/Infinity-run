@@ -1,0 +1,21 @@
+{
+  "name": "infinity-run",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Framework white-label per branded 3D on-rails runner game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.54.3",
+    "@babylonjs/loaders": "^7.54.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.19"
+  }
+}
