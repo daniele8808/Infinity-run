@@ -130,6 +130,17 @@ html, body {
 }
 .hud-hint.fade { opacity: 0; }
 
+.hud-fps {
+  position: absolute; top: 100px; right: 20px;
+  font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #b9ffb9;
+  background: rgba(0,0,0,.45);
+  padding: 3px 10px; border-radius: 999px;
+  pointer-events: none;
+}
+.hud-fps.low { color: #ff8080; }
+
 /* Messaggi centrali */
 .center-msg {
   position: absolute; top: 38%; left: 50%;

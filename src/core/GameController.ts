@@ -52,6 +52,7 @@ export class GameController {
   private timeLeft: number;
   private readonly timeLimit: number;
   private playTime = 0;
+  private fpsAcc = 0;
 
   constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string } = {}) {
     applyBrand(cfg);
@@ -373,12 +374,18 @@ export class GameController {
       // Musica più intensa avvicinandosi al traguardo.
       this.audio.intensity = Math.min(1, this.run.progress * 1.15);
 
+      // Indicatore FPS diagnostico.
+      this.fpsAcc += dt;
+      if (this.fpsAcc > 0.5) {
+        this.fpsAcc = 0;
+        this.hud.setFps(this.engine.engine.getFps(), this.engine.scene.getActiveMeshes().length);
+      }
+
       if (pd >= this.track.finishD) this.finish(true);
       else if (this.timeLeft <= 0) this.finish(false);
     }
 
     this.camera.update(dt);
-    this.engine.followSun(this.character.root.position);
   }
 
   private async finish(completed: boolean): Promise<void> {

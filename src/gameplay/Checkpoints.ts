@@ -40,10 +40,10 @@ export class CheckpointSystem {
       glowMat.disableLighting = true;
       glowMat.alpha = 0.75;
       const arch = MeshBuilder.CreateTorus(`cpArch${cp.index}`, {
-        diameter: half * 2 + 1.5, thickness: 0.22, tessellation: 40,
+        diameter: half * 2 - 0.8, thickness: 0.2, tessellation: 40,
       }, this.scene);
       arch.rotation.x = Math.PI / 2;
-      arch.position.y = 0.2;
+      arch.position.y = 0.35;
       arch.material = glowMat;
       arch.parent = root;
 
@@ -128,9 +128,9 @@ export class FinishGate {
     glowMat.emissiveColor = primary;
     glowMat.disableLighting = true;
     glowMat.alpha = 0.5;
-    const arch = MeshBuilder.CreateTorus('finishArch', { diameter: half * 2 + 1.6, thickness: 0.35, tessellation: 48 }, this.scene);
+    const arch = MeshBuilder.CreateTorus('finishArch', { diameter: half * 2 - 0.6, thickness: 0.32, tessellation: 48 }, this.scene);
     arch.rotation.x = Math.PI / 2;
-    arch.position.y = 0.2;
+    arch.position.y = 0.35;
     arch.material = glowMat;
     arch.parent = this.root;
   }

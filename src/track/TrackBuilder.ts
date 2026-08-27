@@ -85,11 +85,32 @@ export class TrackBuilder {
       }
       if (r > 0) {
         const gapHere = d > 0 && (t.isGap(d) || t.isGap(rows[r - 1].d));
+        const prevGap = r > 1 && rows[r - 1].d > 0 && (t.isGap(rows[r - 1].d) || t.isGap(rows[r - 2].d));
         if (!gapHere) {
           const a = vi - 4, b = vi;
           for (let i = 0; i < 3; i++) {
             indices.push(a + i, b + i, b + i + 1, a + i, b + i + 1, a + i + 1);
           }
+        }
+        // Pareti di chiusura ai bordi delle voragini, allineate alla mesh:
+        // niente piu' spigoli 'bucati' guardando dentro il fosso.
+        if (gapHere !== prevGap) {
+          const rowD = rows[r - 1].d;
+          t.getFrame(Math.max(rowD, 0.01), frame);
+          const half = frame.width / 2;
+          const l = frame.pos.add(frame.right.scale(-half));
+          const rr = frame.pos.add(frame.right.scale(half));
+          const base = positions.length / 3;
+          positions.push(
+            l.x, l.y + 0.02, l.z,
+            rr.x, rr.y + 0.02, rr.z,
+            rr.x, rr.y - 4, rr.z,
+            l.x, l.y - 4, l.z,
+          );
+          const c = p.skirt;
+          colors.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 1, c.r * 0.55, c.g * 0.55, c.b * 0.55, 1, c.r * 0.55, c.g * 0.55, c.b * 0.55, 1);
+          normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
+          indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
       }
       vi += 4;
@@ -103,7 +124,6 @@ export class TrackBuilder {
     mat.backFaceCulling = false;
     mesh.material = mat;
     mesh.useVertexColors = true;
-    mesh.receiveShadows = true;
     mesh.parent = this.root;
     mesh.freezeWorldMatrix();
 
@@ -170,8 +190,7 @@ export class TrackBuilder {
     const t = this.track;
     const p = this.palette;
     // Punti in cui il blocco solido della strada si interrompe.
-    const capDs: number[] = [t.totalLength - 0.15];
-    for (const [a, b] of t.gaps) { capDs.push(a - 0.1, b + 0.1); }
+    const capDs: number[] = [t.totalLength - 0.15, -LEAD_IN + 0.1];
     for (const seg of t.plan) {
       if (seg.kind === 'bridge') { capDs.push(seg.startD - 0.1, seg.startD + seg.length + 0.1); }
     }

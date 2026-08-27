@@ -191,7 +191,7 @@ export interface GameConfig {
   profiles?: ProfileConfig[];
   /** Durate proposte nel menu; vuoto = si usa level.duration. */
   durationOptions?: DurationOption[];
-  game: { name: string; version: string };
+  game: { name: string; version: string; debugFps?: boolean };
   brand: BrandConfig;
   character: CharacterConfig;
   movement: MovementConfig;
