@@ -1,6 +1,6 @@
 import { Vector3 } from '@babylonjs/core';
 import type { GameConfig } from '../config/types';
-import type { TrackSystem } from '../track/TrackSystem';
+import type { TrackFrame, TrackSystem } from '../track/TrackSystem';
 import type { CharacterSystem } from '../character/CharacterSystem';
 import type { InputSystem } from '../input/InputSystem';
 import type { EventBus } from '../core/EventBus';
@@ -37,6 +37,8 @@ export class RunController {
   private lastSpeedMult = 1;
   private fallTimer = 0;
   private worldPos = new Vector3();
+  private sf1: TrackFrame | null = null;
+  private sf2: TrackFrame | null = null;
 
   constructor(
     private cfg: GameConfig,
@@ -135,7 +137,8 @@ export class RunController {
     const targetVx = this.input.axis * m.lateralSpeed;
     this.vx += (targetVx - this.vx) * Math.min(1, dt * 14);
     this.x += this.vx * dt;
-    const frame = this.track.getFrame(this.d);
+    if (!this.sf1) { this.sf1 = this.track.getFrame(0); this.sf2 = this.track.getFrame(0); }
+    const frame = this.track.getFrame(this.d, this.sf1);
     const margin = 0.55;
     const half = Math.max(0.6, frame.width / 2 - margin);
     this.x = Math.max(-half, Math.min(half, this.x));
@@ -171,7 +174,8 @@ export class RunController {
 
   /** Posiziona la mesh del personaggio nel mondo. */
   private syncVisual(dt: number): void {
-    const frame = this.track.getFrame(this.d);
+    if (!this.sf1) { this.sf1 = this.track.getFrame(0); this.sf2 = this.track.getFrame(0); }
+    const frame = this.track.getFrame(this.d, this.sf1);
     this.track.toWorld(this.d, this.x, this.y, this.worldPos);
     this.character.root.position.copyFrom(this.worldPos);
     const yaw = Math.atan2(frame.forward.x, frame.forward.z);
@@ -180,7 +184,7 @@ export class RunController {
     const lean = this.vx * 0.045 + frame.curvature * this.speed * 0.4;
     this.character.visual.rotation.z += ((-lean) - this.character.visual.rotation.z) * Math.min(1, dt * 10);
     // Pendenza: inclina leggermente il busto su salite/discese.
-    const ahead = this.track.getFrame(Math.min(this.d + 3, this.track.totalLength - 1));
+    const ahead = this.track.getFrame(Math.min(this.d + 3, this.track.totalLength - 1), this.sf2!);
     const slope = Math.atan2(ahead.pos.y - frame.pos.y, 3);
     this.character.visual.rotation.x += ((slope * 0.5) - this.character.visual.rotation.x) * Math.min(1, dt * 8);
   }

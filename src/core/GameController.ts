@@ -118,8 +118,8 @@ export class GameController {
     this.fx = new Effects(this.engine.scene);
     setProgress(1);
 
-    // Ombre del personaggio.
-    for (const m of this.character.meshes) this.engine.shadows.addShadowCaster(m);
+    // Ombra del personaggio: solo il disco morbido (l'ombra dinamica
+    // sfarfallava sovrapponendosi al disco su mobile).
 
     // Input.
     this.input.addSource(new KeyboardSource());
@@ -300,9 +300,13 @@ export class GameController {
       return;
     }
     if (fromFall) {
-      // Riparte poco prima della voragine.
-      const back = Math.max(0, this.run.d - 14);
-      this.run.respawnAt(this.checkpoints.lastPassedD > back - 40 ? Math.max(this.checkpoints.lastPassedD, 0) : back);
+      // Riparte ~35 m prima della voragine (circa 3 secondi di corsa):
+      // il giocatore deve avere il tempo di leggere il salto e prepararlo.
+      const gap = this.track.gaps.find(([a, b]) => this.run.d >= a - 8 && this.run.d <= b + 8);
+      const back = Math.max(0, (gap ? gap[0] : this.run.d) - 35);
+      this.run.respawnAt(Math.max(this.checkpoints.lastPassedD, 0) > back
+        ? Math.max(this.checkpoints.lastPassedD, 0)
+        : back);
       this.resetWindows();
     } else {
       this.run.applyHit();
@@ -324,7 +328,7 @@ export class GameController {
 
   private update(dt: number): void {
     this.fx?.update(dt);
-    this.theme.update(dt, this.character.root?.position ?? Vector3.Zero());
+    this.theme.update(dt, this.character.root?.position ?? Vector3.Zero(), this.run.d);
     this.character.update?.(dt);
     if (this.phase === 'intro' || this.phase === 'countdown') {
       this.camera.update(dt);

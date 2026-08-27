@@ -18,6 +18,8 @@ export interface TrackPalette {
 
 const SAMPLE = 2;
 const SKIRT_DEPTH = 4;
+/** Metri di strada extra dietro la linea di partenza (mai 'muro' in camera). */
+const LEAD_IN = 26;
 
 /**
  * Costruisce le mesh del percorso: nastro stradale con vertex color,
@@ -50,13 +52,23 @@ export class TrackBuilder {
     const t = this.track;
     const p = this.palette;
     const rows: { d: number; skip: boolean }[] = [];
-    for (let d = 0; d <= t.totalLength; d += SAMPLE) rows.push({ d, skip: false });
+    for (let d = -LEAD_IN; d <= t.totalLength; d += SAMPLE) rows.push({ d, skip: false });
 
     let vi = 0;
     const frame = t.getFrame(0);
+    const f0 = t.getFrame(0.1);
+    const lead = { fwd: f0.forward.clone(), right: f0.right.clone(), pos: f0.pos.clone(), width: f0.width };
     for (let r = 0; r < rows.length; r++) {
       const { d } = rows[r];
-      t.getFrame(d, frame);
+      if (d < 0) {
+        // Estrapolazione rettilinea dietro la partenza.
+        frame.pos.copyFrom(lead.pos).addInPlace(lead.fwd.scale(d));
+        frame.right.copyFrom(lead.right);
+        frame.width = lead.width;
+        frame.kind = 'straight';
+      } else {
+        t.getFrame(d, frame);
+      }
       const seg = t.segmentAt(d);
       const half = frame.width / 2;
       const isBridge = seg.kind === 'bridge';
@@ -72,7 +84,7 @@ export class TrackBuilder {
         normals.push(0, 1, 0);
       }
       if (r > 0) {
-        const gapHere = t.isGap(d) || t.isGap(rows[r - 1].d);
+        const gapHere = d > 0 && (t.isGap(d) || t.isGap(rows[r - 1].d));
         if (!gapHere) {
           const a = vi - 4, b = vi;
           for (let i = 0; i < 3; i++) {
@@ -106,12 +118,22 @@ export class TrackBuilder {
     const indices: number[] = [];
     const colors: number[] = [];
     const frame = t.getFrame(0);
+    const f0 = t.getFrame(0.1);
+    const lead = { fwd: f0.forward.clone(), right: f0.right.clone(), pos: f0.pos.clone(), width: f0.width };
     let vi = 0;
     let prevOk = false;
-    for (let d = 0; d <= t.totalLength; d += SAMPLE) {
-      t.getFrame(d, frame);
-      const seg = t.segmentAt(d);
-      const skip = t.isGap(d) || seg.kind === 'bridge';
+    for (let d = -LEAD_IN; d <= t.totalLength; d += SAMPLE) {
+      let skip: boolean;
+      if (d < 0) {
+        frame.pos.copyFrom(lead.pos).addInPlace(lead.fwd.scale(d));
+        frame.right.copyFrom(lead.right);
+        frame.width = lead.width;
+        skip = false;
+      } else {
+        t.getFrame(d, frame);
+        const seg = t.segmentAt(d);
+        skip = t.isGap(d) || seg.kind === 'bridge';
+      }
       const half = frame.width / 2;
       for (const side of [-1, 1]) {
         const top = frame.pos.add(frame.right.scale(side * half));
@@ -148,7 +170,7 @@ export class TrackBuilder {
     const t = this.track;
     const p = this.palette;
     // Punti in cui il blocco solido della strada si interrompe.
-    const capDs: number[] = [0.15, t.totalLength - 0.15];
+    const capDs: number[] = [t.totalLength - 0.15];
     for (const [a, b] of t.gaps) { capDs.push(a - 0.1, b + 0.1); }
     for (const seg of t.plan) {
       if (seg.kind === 'bridge') { capDs.push(seg.startD - 0.1, seg.startD + seg.length + 0.1); }

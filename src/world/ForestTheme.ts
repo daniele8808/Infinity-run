@@ -154,8 +154,17 @@ export class ForestTheme {
     this.buildAmbientParticles();
   }
 
-  update(dt: number, playerPos: Vector3): void {
+  update(dt: number, playerPos: Vector3, playerD = 0): void {
     this.time += dt;
+    // Streaming: solo la vegetazione entro ~600 m resta attiva.
+    this.cullAcc += dt;
+    if (this.cullAcc > 0.35 && this.propInstances.length) {
+      this.cullAcc = 0;
+      for (const p of this.propInstances) {
+        const on = p.d > playerD - 120 && p.d < playerD + 620;
+        if (on !== p.on) { p.on = on; p.node.setEnabled(on); }
+      }
+    }
     for (const c of this.clouds) c.node.position.x += c.speed * dt;
     if (this.ambientPs) {
       (this.ambientPs.emitter as Vector3).copyFrom(playerPos);
@@ -359,6 +368,7 @@ export class ForestTheme {
         inst.isPickable = false;
         inst.parent = this.root;
         inst.freezeWorldMatrix();
+        this.propInstances.push({ node: inst, d, on: true });
         if (spec.file.startsWith('flower') && flowersAnchors.length < 14 && rng() < 0.4) {
           flowersAnchors.push(pos.clone());
         }
@@ -368,6 +378,9 @@ export class ForestTheme {
   }
 
   private flowerAnchors: Vector3[] = [];
+  /** Prop del percorso con la loro distanza d, per lo streaming. */
+  private propInstances: { node: { setEnabled(b: boolean): void }; d: number; on: boolean }[] = [];
+  private cullAcc = 99;
 
   private async buildClouds(): Promise<void> {
     const rng = createRng(99);

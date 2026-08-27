@@ -1,5 +1,5 @@
 import { FreeCamera, Scene, Vector3 } from '@babylonjs/core';
-import type { TrackSystem } from '../track/TrackSystem';
+import type { TrackFrame, TrackSystem } from '../track/TrackSystem';
 import type { RunController } from '../gameplay/RunController';
 
 /**
@@ -17,6 +17,7 @@ export class ChaseCamera {
   private smoothPos: Vector3 | null = null;
   private smoothTarget: Vector3 | null = null;
   private roll = 0;
+  private sf: TrackFrame[] = [];
   /** Modalità intro: inquadra il personaggio frontalmente. */
   introMode = true;
   /** Distanza/quota dell'inquadratura intro (allargata nel countdown). */
@@ -30,6 +31,7 @@ export class ChaseCamera {
     this.camera.maxZ = 4000;
     this.camera.fov = this.baseFov;
     scene.activeCamera = this.camera;
+    for (let i = 0; i < 6; i++) this.sf.push(this.track.getFrame(0));
   }
 
   addShake(amount: number): void { this.shake = Math.min(1.4, this.shake + amount); }
@@ -48,7 +50,7 @@ export class ChaseCamera {
     const run = this.run;
     if (this.introMode) {
       // Davanti al personaggio, che guarda in camera.
-      const f = this.track.getFrame(run.d);
+      const f = this.track.getFrame(run.d, this.sf[0]);
       this.pos.copyFrom(run.world)
         .addInPlace(f.forward.scale(-this.introDistance))
         .addInPlace(f.right.scale(0.9));
@@ -58,9 +60,9 @@ export class ChaseCamera {
     } else {
       const back = 7.2;
       const ahead = 10 + run.speed * 0.35;
-      const fBack = this.track.getFrame(Math.max(0, run.d - back));
-      const fAhead = this.track.getFrame(Math.min(this.track.totalLength - 1, run.d + ahead));
-      const fHere = this.track.getFrame(run.d);
+      const fBack = this.track.getFrame(Math.max(0, run.d - back), this.sf[1]);
+      const fAhead = this.track.getFrame(Math.min(this.track.totalLength - 1, run.d + ahead), this.sf[2]);
+      const fHere = this.track.getFrame(run.d, this.sf[3]);
       // Posizione: dietro sulla spline, rialzata; segue in parte l'offset laterale.
       this.pos.copyFrom(fBack.pos)
         .addInPlace(fBack.right.scale(run.x * 0.55));
@@ -68,8 +70,8 @@ export class ChaseCamera {
       // strada nell'intero tratto visibile (dietro, sotto E davanti al
       // personaggio), così guarda sempre leggermente in giù e oltre i
       // dossi si vede la valle, non solo cielo.
-      const fMid = this.track.getFrame(Math.max(0, run.d - back * 0.5));
-      const fA1 = this.track.getFrame(Math.min(this.track.totalLength - 1, run.d + ahead * 0.5));
+      const fMid = this.track.getFrame(Math.max(0, run.d - back * 0.5), this.sf[4]);
+      const fA1 = this.track.getFrame(Math.min(this.track.totalLength - 1, run.d + ahead * 0.5), this.sf[5]);
       const crest = Math.max(fBack.pos.y, fMid.pos.y, fHere.pos.y, fA1.pos.y, fAhead.pos.y);
       // In salita la camera guadagna quota extra così oltre la cresta si
       // vede il pendio e la valle, non una lama di cielo.

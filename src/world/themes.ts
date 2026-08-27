@@ -6,7 +6,7 @@ import { ForestTheme, FOREST_PALETTE, DAY_VARIANT, NIGHT_VARIANT } from './Fores
 /** Contratto di un tema: ambiente completo costruito attorno al percorso. */
 export interface Theme {
   build(): Promise<void>;
-  update(dt: number, playerPos: { x: number; y: number; z: number }): void;
+  update(dt: number, playerPos: { x: number; y: number; z: number }, playerD?: number): void;
 }
 
 /** Illuminazione/atmosfera applicata dal GameController alla scena. */
