@@ -209,6 +209,12 @@
         },
         "strings": {
           "collectibles": "Essenze"
+        },
+        "audio": {
+          "style": "magic",
+          "files": {
+            "coin": ""
+          }
         }
       }
     }
