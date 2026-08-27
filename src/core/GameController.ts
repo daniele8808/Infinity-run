@@ -1,0 +1,429 @@
+import { Color3, Vector3 } from '@babylonjs/core';
+import type { GameConfig, PowerUpKind } from '../config/types';
+import { GameEngine } from './GameEngine';
+import { EventBus } from './EventBus';
+import { TrackSystem } from '../track/TrackSystem';
+import { TrackBuilder } from '../track/TrackBuilder';
+import { resolveTheme, type Theme, type ThemeDefinition } from '../world/themes';
+import { CharacterSystem } from '../character/CharacterSystem';
+import { InputSystem, KeyboardSource, TouchSource } from '../input/InputSystem';
+import { RunController } from '../gameplay/RunController';
+import { ChaseCamera } from '../camera/ChaseCamera';
+import { CollectibleSystem } from '../gameplay/Collectibles';
+import { ObstacleSystem } from '../gameplay/Obstacles';
+import { EnemySystem } from '../gameplay/Enemies';
+import { PowerUpSystem } from '../gameplay/PowerUps';
+import { CheckpointSystem, FinishGate } from '../gameplay/Checkpoints';
+import { ScoreSystem } from '../gameplay/ScoreSystem';
+import { AudioSystem } from '../audio/AudioSystem';
+import { Effects } from '../fx/Effects';
+import { Hud } from '../ui/Hud';
+import { Screens } from '../ui/Screens';
+import { createLeaderboard, type LeaderboardProvider } from '../leaderboard/Leaderboard';
+
+type Phase = 'boot' | 'name' | 'intro' | 'countdown' | 'playing' | 'finishing' | 'results';
+
+/** Orchestratore: possiede i sistemi, gestisce il flusso e le regole. */
+export class GameController {
+  private engine: GameEngine;
+  private bus = new EventBus();
+  private track: TrackSystem;
+  private theme: Theme;
+  private themeDef: ThemeDefinition;
+  private character: CharacterSystem;
+  private input = new InputSystem();
+  private run: RunController;
+  private camera: ChaseCamera;
+  private coins: CollectibleSystem;
+  private obstacles: ObstacleSystem;
+  private enemies: EnemySystem;
+  private powerUps: PowerUpSystem;
+  private checkpoints: CheckpointSystem;
+  private score: ScoreSystem;
+  private audio: AudioSystem;
+  private fx!: Effects;
+  private hud: Hud;
+  private screens: Screens;
+  private leaderboard: LeaderboardProvider;
+
+  private phase: Phase = 'boot';
+  private lives: number;
+  private nickname = 'PLAYER';
+  private timeLeft: number;
+  private readonly timeLimit: number;
+  private playTime = 0;
+
+  constructor(canvas: HTMLCanvasElement, private cfg: GameConfig) {
+    applyBrand(cfg);
+    this.engine = new GameEngine(canvas);
+    this.track = new TrackSystem(cfg.level, cfg.movement);
+    this.themeDef = resolveTheme(cfg.environment.theme);
+    this.theme = this.themeDef.create(this.engine.scene, this.track, cfg.environment.assetPath);
+    this.character = new CharacterSystem(this.engine.scene, cfg.character);
+    this.run = new RunController(cfg, this.track, this.character, this.input, this.bus);
+    this.camera = new ChaseCamera(this.engine.scene, this.track, this.run);
+    this.coins = new CollectibleSystem(this.engine.scene, this.track, cfg.collectible, cfg.movement, this.bus);
+    this.obstacles = new ObstacleSystem(this.engine.scene, this.track, cfg.environment.assetPath);
+    this.enemies = new EnemySystem(this.engine.scene, this.track, cfg.enemy);
+    this.powerUps = new PowerUpSystem(this.engine.scene, this.track, cfg.powerUps, this.bus);
+    this.checkpoints = new CheckpointSystem(
+      this.engine.scene, this.track, this.bus, 'assets/props/flag.glb',
+      Color3.FromHexString(cfg.brand.accentColor),
+    );
+    this.score = new ScoreSystem(cfg.scoring, this.bus);
+    this.audio = new AudioSystem(cfg.audio);
+    this.leaderboard = createLeaderboard(cfg.leaderboard);
+    this.lives = cfg.rules.startingLives;
+    // Piccolo margine oltre la durata teorica per respawn e imprevisti.
+    this.timeLimit = Math.round(cfg.level.duration * 1.2);
+    this.timeLeft = this.timeLimit;
+
+    (window as unknown as Record<string, unknown>).__game = this;
+    const ui = document.getElementById('ui')!;
+    this.hud = new Hud(ui, cfg);
+    this.screens = new Screens(ui, cfg);
+  }
+
+  async start(): Promise<void> {
+    const setProgress = this.screens.loading();
+    const steps: [string, () => Promise<unknown>][] = [
+      ['theme', () => this.theme.build()],
+      ['character', () => this.character.load()],
+      ['coins', () => this.coins.build()],
+      ['obstacles', () => this.obstacles.build()],
+      ['enemies', () => this.enemies.build()],
+      ['powerups', () => this.powerUps.build()],
+      ['checkpoints', () => this.checkpoints.build()],
+    ];
+    let done = 0;
+    for (const [name, job] of steps) {
+      try {
+        await job();
+      } catch (err) {
+        // Un asset mancante non blocca il gioco: log e si prosegue.
+        console.warn(`Caricamento parziale (${name}):`, err);
+      }
+      setProgress(++done / (steps.length + 1));
+    }
+    new TrackBuilder(this.engine.scene, this.track, this.themeDef.palette);
+    new FinishGate(
+      this.engine.scene, this.track,
+      Color3.FromHexString(this.cfg.brand.primaryColor),
+      Color3.FromHexString(this.cfg.brand.secondaryColor),
+      this.cfg.game.name.toUpperCase(),
+    );
+    this.fx = new Effects(this.engine.scene);
+    setProgress(1);
+
+    // Ombre del personaggio.
+    for (const m of this.character.meshes) this.engine.shadows.addShadowCaster(m);
+
+    // Input.
+    this.input.addSource(new KeyboardSource());
+    this.input.addSource(new TouchSource(document.body));
+    this.input.onAny(() => this.audio.unlock());
+
+    // Posizione iniziale: personaggio rivolto verso la camera.
+    this.placeCharacterAtStart();
+    this.wireEvents();
+    this.engine.onUpdate((dt) => this.update(dt));
+
+    await new Promise((r) => setTimeout(r, 350));
+    this.phase = 'name';
+    this.nickname = await this.screens.nameEntry();
+    this.audio.unlock();
+    await this.playIntro();
+  }
+
+  private placeCharacterAtStart(): void {
+    const f = this.track.getFrame(0.1);
+    const pos = this.track.toWorld(0.1, 0, 0);
+    this.character.root.position.copyFrom(pos);
+    this.character.root.rotation.y = Math.atan2(f.forward.x, f.forward.z) + Math.PI;
+  }
+
+  /** Intro: saluto frontale, giro verso il percorso, countdown, via. */
+  private async playIntro(): Promise<void> {
+    this.phase = 'intro';
+    this.camera.introMode = true;
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    this.character.play('greeting', false, 1);
+    await wait(Math.min(2200, this.character.duration('greeting') * 1000 + 300));
+
+    // Si gira verso il percorso.
+    const f = this.track.getFrame(0.1);
+    const targetYaw = Math.atan2(f.forward.x, f.forward.z);
+    const startYaw = this.character.root.rotation.y;
+    const turnMs = 650;
+    const t0 = performance.now();
+    this.character.play('idle', true);
+    await new Promise<void>((resolve) => {
+      const step = () => {
+        const k = Math.min(1, (performance.now() - t0) / turnMs);
+        this.character.root.rotation.y = startYaw + (targetYaw + Math.PI * 2 - startYaw) * easeInOut(k);
+        if (k < 1) requestAnimationFrame(step); else resolve();
+      };
+      step();
+    });
+    this.character.root.rotation.y = targetYaw;
+
+    // Countdown 3-2-1-VIA! con camera che si allarga.
+    this.phase = 'countdown';
+    this.camera.introDistance = 7.4;
+    this.camera.introHeight = 2.9;
+    for (const n of ['3', '2', '1']) {
+      this.hud.countdown(n);
+      this.audio.play('countdown');
+      await wait(900);
+    }
+    this.hud.countdown(this.cfg.strings.go);
+    this.audio.play('go');
+    this.camera.introMode = false;
+    this.hud.show();
+    this.audio.startMusic();
+    this.phase = 'playing';
+    this.run.start();
+  }
+
+  /** Cablaggio eventi -> punteggio, HUD, audio, effetti. */
+  private wireEvents(): void {
+    const b = this.bus;
+    b.on('coinCollected', ({ d, x, y }) => {
+      this.audio.play('coin');
+      this.fx.burst(this.track.toWorld(d, x, y), Color3.FromHexString('#ffd700'));
+    });
+    b.on('scoreChanged', ({ score, delta }) => {
+      this.hud.setScore(score);
+      if (delta > 0 && delta < 2000) this.hud.floatScore(`+${delta}`);
+    });
+    b.on('comboChanged', ({ multiplier }) => {
+      this.hud.setMultiplier(multiplier);
+      if (multiplier > 1) {
+        this.audio.play('combo');
+        this.hud.message(`COMBO x${multiplier}`, false, 'var(--accent)');
+      }
+    });
+    b.on('jumped', () => this.audio.play('jump'));
+    b.on('landed', () => this.audio.play('land'));
+    b.on('checkpointReached', ({ index, d }) => {
+      this.audio.play('checkpoint');
+      this.hud.message(this.cfg.strings.checkpoint);
+      this.fx.wave(this.track.toWorld(d, 0, 0.3), Color3.FromHexString(this.cfg.brand.accentColor));
+      void index;
+    });
+    b.on('powerUpCollected', ({ kind, d, x }) => {
+      this.audio.play('powerup');
+      this.fx.burst(this.track.toWorld(d, x, 1.2), this.powerUps.color(kind as PowerUpKind), 22, 1.3);
+      this.applyPowerUp(kind as PowerUpKind, true);
+    });
+    b.on('powerUpExpired', ({ kind }) => {
+      this.applyPowerUp(kind as PowerUpKind, false);
+      this.hud.removePowerUp(kind);
+    });
+    b.on('fell', () => {
+      this.audio.play('fall');
+      this.loseLife(true);
+    });
+
+    this.obstacles.onHit = () => this.handleHit('obstacle');
+    this.enemies.onHit = () => this.handleHit('enemy');
+  }
+
+  private applyPowerUp(kind: PowerUpKind, on: boolean): void {
+    switch (kind) {
+      case 'magnet':
+        this.coins.magnetRadius = on ? this.cfg.powerUps.magnetRadius : 0;
+        break;
+      case 'doubleScore':
+        this.score.doubleScoreActive = on;
+        break;
+      case 'speedBoost':
+        this.run.modifiers.speedFactor = on ? this.cfg.powerUps.speedBoostFactor : 1;
+        this.camera.setFovBoost(on);
+        break;
+      case 'superJump':
+        this.run.modifiers.jumpFactor = on ? 1.35 : 1;
+        break;
+      case 'shield':
+      case 'invincibility':
+        break;
+    }
+    if (on && kind === 'shield') this.hud.setPowerUp('shield', 0, 0);
+    if (this.character.has('powerUp') && on) {
+      // Piccola celebrazione senza interrompere la corsa: solo se non in aria.
+    }
+  }
+
+  private get playerProtected(): boolean {
+    return this.run.invulnerable > 0 || this.powerUps.has('invincibility');
+  }
+
+  private handleHit(source: 'obstacle' | 'enemy'): void {
+    if (this.phase !== 'playing' || this.playerProtected) return;
+    if (this.powerUps.consumeShield()) {
+      this.audio.play('powerup');
+      this.hud.removePowerUp('shield');
+      this.fx.burst(this.character.root.position.add(new Vector3(0, 1, 0)), Color3.FromHexString('#38bdf8'), 20, 1.2);
+      this.run.applyHit();
+      return;
+    }
+    this.audio.play(source === 'enemy' ? 'enemy' : 'hit');
+    this.loseLife(false);
+  }
+
+  private loseLife(fromFall: boolean): void {
+    if (this.phase !== 'playing') return;
+    this.lives--;
+    this.hud.setLives(this.lives);
+    this.hud.hitFlash();
+    this.camera.addShake(0.9);
+    this.bus.emit('lifeLost', { livesLeft: this.lives });
+
+    if (this.lives <= 0) {
+      // Torna all'ultimo checkpoint (o all'inizio) con vite piene.
+      this.audio.play('gameover');
+      this.lives = this.cfg.rules.startingLives;
+      this.hud.setLives(this.lives);
+      const d = this.cfg.rules.onGameOver === 'restart' ? 0 : this.checkpoints.lastPassedD;
+      this.hud.message(this.cfg.strings.respawn, true);
+      this.run.respawnAt(Math.max(0, d));
+      this.resetWindows();
+      return;
+    }
+    if (fromFall) {
+      // Riparte poco prima della voragine.
+      const back = Math.max(0, this.run.d - 14);
+      this.run.respawnAt(this.checkpoints.lastPassedD > back - 40 ? Math.max(this.checkpoints.lastPassedD, 0) : back);
+      this.resetWindows();
+    } else {
+      this.run.applyHit();
+      this.character.play('hit', false, 1.3, 0.08);
+      setTimeout(() => {
+        if (this.phase === 'playing' && this.run.grounded) {
+          this.character.play('run', true, this.cfg.character.runAnimSpeed);
+        }
+      }, 700);
+    }
+  }
+
+  private resetWindows(): void {
+    this.coins.reset();
+    this.obstacles.reset();
+    this.enemies.reset();
+    this.powerUps.reset();
+  }
+
+  private update(dt: number): void {
+    this.fx?.update(dt);
+    this.theme.update(dt, this.character.root?.position ?? Vector3.Zero());
+    this.character.update?.(dt);
+    if (this.phase === 'intro' || this.phase === 'countdown') {
+      this.camera.update(dt);
+      return;
+    }
+    if (this.phase !== 'playing' && this.phase !== 'finishing') return;
+
+    this.run.update(dt);
+    const pd = this.run.d, px = this.run.x, py = this.run.y;
+
+    if (this.phase === 'playing') {
+      this.playTime += dt;
+      this.timeLeft -= dt;
+      const canHit = !this.playerProtected;
+      this.coins.update(dt, pd, px, py);
+      this.obstacles.update(dt, pd, px, py, canHit);
+      this.enemies.update(dt, pd, px, py, canHit);
+      this.powerUps.update(dt, pd, px, py);
+      this.checkpoints.update(dt, pd);
+
+      // HUD.
+      this.hud.setTime(this.timeLeft);
+      this.hud.setProgress(this.run.progress);
+      for (const [kind, s] of this.powerUps.active) this.hud.setPowerUp(kind, s.remaining, s.duration);
+
+      // Lampeggio invulnerabilità.
+      const blink = this.run.invulnerable > 0 && Math.floor(this.run.invulnerable * 10) % 2 === 0;
+      this.character.visual.setEnabled(!blink);
+
+      // Ombra blob a terra (segue anche il salto).
+      const ground = this.track.toWorld(pd, px, 0);
+      this.fx.updateBlobShadow(ground, py);
+
+      // Bolla scudo.
+      const bubble = this.powerUps.shieldCharges > 0 || this.powerUps.has('invincibility');
+      this.fx.shieldBubble.setEnabled(bubble);
+      if (bubble) {
+        this.fx.shieldBubble.position.copyFrom(this.character.root.position);
+        this.fx.shieldBubble.position.y += 0.95;
+      }
+
+      // Musica più intensa avvicinandosi al traguardo.
+      this.audio.intensity = Math.min(1, this.run.progress * 1.15);
+
+      if (pd >= this.track.finishD) this.finish(true);
+      else if (this.timeLeft <= 0) this.finish(false);
+    }
+
+    this.camera.update(dt);
+    this.engine.followSun(this.character.root.position);
+  }
+
+  private async finish(completed: boolean): Promise<void> {
+    if (this.phase !== 'playing') return;
+    this.phase = 'finishing';
+    this.run.phase = 'finished';
+    this.character.visual.setEnabled(true);
+    this.audio.stopMusic();
+
+    if (completed) {
+      this.audio.play('victory');
+      this.hud.message(this.cfg.strings.levelComplete, true);
+      this.character.play('victory', true, 1);
+      this.fx.celebrate(this.character.root);
+      this.fx.burst(this.character.root.position.add(new Vector3(0, 2, 0)), Color3.FromHexString(this.cfg.brand.primaryColor), 30, 2);
+      this.score.finish(Math.max(0, this.timeLeft));
+    } else {
+      this.audio.play('gameover');
+      this.hud.message(this.cfg.strings.gameOver, true);
+      this.character.play('death', false, 1);
+    }
+
+    await new Promise((r) => setTimeout(r, 2600));
+    this.phase = 'results';
+    this.hud.hide();
+
+    const stats = {
+      score: this.score.score,
+      coins: this.coins.collected,
+      coinsTotal: this.coins.total,
+      powerUps: this.powerUps.collectedCount,
+      timeSeconds: this.playTime,
+      bestCombo: this.score.bestCombo,
+      completed,
+    };
+    const rank = await this.leaderboard.submit({
+      nickname: this.nickname,
+      score: stats.score,
+      timeSeconds: Math.round(stats.timeSeconds),
+      date: new Date().toISOString(),
+      eventId: this.cfg.leaderboard.eventId,
+    });
+    const top = await this.leaderboard.top(5);
+    this.screens.results(stats, rank, top, this.nickname, () => window.location.reload());
+  }
+}
+
+/** Applica i colori/font del brand come CSS variables. */
+function applyBrand(cfg: GameConfig): void {
+  const r = document.documentElement.style;
+  r.setProperty('--primary', cfg.brand.primaryColor);
+  r.setProperty('--secondary', cfg.brand.secondaryColor);
+  r.setProperty('--accent', cfg.brand.accentColor);
+  r.setProperty('--text', cfg.brand.textColor);
+  r.setProperty('--ui-bg', cfg.brand.uiBackground);
+  r.setProperty('--font', cfg.brand.fontFamily);
+  document.title = cfg.game.name;
+}
+
+function easeInOut(t: number): number { return t * t * (3 - 2 * t); }
