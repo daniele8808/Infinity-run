@@ -92,6 +92,7 @@ export class Screens {
         <button class="btn">${s.play}</button>
         ${iosHint}
         <button class="admin-btn" aria-label="Impostazioni">⚙️</button>
+        <div class="menu-version">v${this.cfg.game.version}</div>
       `;
       this.mount(el);
       let profile = profiles[0];
