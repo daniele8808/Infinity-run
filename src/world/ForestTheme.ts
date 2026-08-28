@@ -121,7 +121,7 @@ export class ForestTheme {
     for (let d = 0; d < this.track.totalLength; d += 8) {
       // Voragini e ponti restano su una conca: il terreno lì non sale.
       const seg = this.track.segmentAt(d);
-      if (seg.kind === 'bridge' || this.track.isGap(d)) continue;
+      if (seg.kind === 'bridge' || seg.kind === 'narrow' || this.track.isGap(d)) continue;
       this.track.getFrame(d, f);
       this.roadSamples.push({ x: f.pos.x, z: f.pos.z, y: f.pos.y });
     }
@@ -358,7 +358,7 @@ export class ForestTheme {
     for (let d = 4; d < this.track.totalLength; d += 5.5) {
       this.track.getFrame(d, frame);
       const seg = this.track.segmentAt(d);
-      if (seg.kind === 'bridge' || seg.kind === 'canyon') continue;
+      if (seg.kind === 'bridge' || seg.kind === 'narrow' || seg.kind === 'canyon') continue;
       const sides = rng() < 0.75 ? [-1, 1] : [rng() < 0.5 ? -1 : 1];
       for (const side of sides) {
         let r = rng() * totalWeight;

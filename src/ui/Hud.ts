@@ -36,12 +36,14 @@ export class Hud {
       <div class="hud-top">
         <div class="hud-lives" aria-label="${cfg.strings.lives}"></div>
         <div class="hud-score"><span class="value">0</span><span class="mult">x1</span></div>
-        <div class="hud-time">0:00</div>
+        <div class="hud-right">
+          <div class="hud-time">0:00</div>
+          <button class="hud-pause" aria-label="Pausa">II</button>
+        </div>
       </div>
       <div class="hud-progress"><div class="fill"></div><div class="marker"></div></div>
       <div class="hud-hint">${isTouch ? cfg.strings.controlsHintMobile : cfg.strings.controlsHint}</div>
       <div class="hud-powerups"></div>
-      <button class="hud-pause" aria-label="Pausa">II</button>
       ${cfg.game.debugFps ? '<div class="hud-fps">-- fps</div>' : ''}
     `;
     parent.appendChild(this.root);
