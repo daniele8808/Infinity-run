@@ -99,6 +99,10 @@ export const FOREST_PALETTE: TrackPalette = {
 export class ForestTheme {
   readonly root: TransformNode;
   private time = 0;
+  // Il cielo (e la luna) inseguono la camera a mano: infiniteDistance
+  // viene ignorato da Babylon quando la mesh ha un parent.
+  private skyDome: Mesh | null = null;
+  private skyBodies: { mesh: Mesh; offset: Vector3 }[] = [];
   private clouds: { node: TransformNode; speed: number }[] = [];
   private birds: { node: TransformNode; radius: number; speed: number; phase: number; center: Vector3; height: number }[] = [];
   private butterflies: { node: TransformNode; wings: Mesh[]; anchor: Vector3; phase: number }[] = [];
@@ -157,6 +161,12 @@ export class ForestTheme {
 
   update(dt: number, playerPos: Vector3, playerD = 0): void {
     this.time += dt;
+    // Skybox vero: la cupola celeste (e la luna) restano centrate su chi
+    // guarda, ovunque arrivi il percorso.
+    if (this.skyDome) this.skyDome.position.set(playerPos.x, 0, playerPos.z);
+    for (const b of this.skyBodies) {
+      b.mesh.position.set(playerPos.x + b.offset.x, b.offset.y, playerPos.z + b.offset.z);
+    }
     // Streaming: solo la vegetazione entro ~600 m resta attiva.
     this.cullAcc += dt;
     if (this.cullAcc > 0.35 && this.propInstances.length) {
@@ -231,8 +241,8 @@ export class ForestTheme {
       moon.material = mm;
       moon.position.set(160, 240, 420);
       moon.applyFog = false;
-      moon.infiniteDistance = true;
       moon.parent = this.root;
+      this.skyBodies.push({ mesh: moon, offset: moon.position.clone() });
       const halo = MeshBuilder.CreateSphere('moonHalo', { diameter: 44, segments: 10 }, this.scene);
       const hm = new StandardMaterial('moonHaloMat', this.scene);
       hm.emissiveColor = Color3.FromHexString('#fdf6d8');
@@ -241,8 +251,8 @@ export class ForestTheme {
       halo.material = hm;
       halo.position.copyFrom(moon.position);
       halo.applyFog = false;
-      halo.infiniteDistance = true;
       halo.parent = this.root;
+      this.skyBodies.push({ mesh: halo, offset: halo.position.clone() });
     }
     const mat = new StandardMaterial('skyMat', this.scene);
     mat.emissiveTexture = tex;
@@ -251,10 +261,11 @@ export class ForestTheme {
     sky.material = mat;
     sky.applyFog = false;
     sky.isPickable = false;
-    // Il cielo segue sempre la camera (skybox vero): il percorso può
-    // estendersi per chilometri senza mai "uscire" dalla sfera celeste.
-    sky.infiniteDistance = true;
+    // Il cielo segue la camera in update(): infiniteDistance NON funziona
+    // sulle mesh con parent, e una sfera statica di raggio 700 diventa un
+    // muro che "taglia" il mondo appena il percorso supera quel raggio.
     sky.parent = this.root;
+    this.skyDome = sky;
   }
 
   /** Valle ondulata sotto il percorso. */

@@ -118,6 +118,7 @@ export class GameController {
       Color3.FromHexString(this.cfg.brand.primaryColor),
       Color3.FromHexString(this.cfg.brand.secondaryColor),
       this.cfg.game.name.toUpperCase(),
+      (this.cfg.strings.finishLine ?? 'TRAGUARDO').toUpperCase(),
     );
     this.fx = new Effects(this.engine.scene);
     setProgress(1);
@@ -203,9 +204,18 @@ export class GameController {
     const f = this.track.getFrame(d);
     const cam = this.camera.camera;
     const h = this.inspectH;
+    // Anti-cresta come la camera di gioco: sui dossi la camera si alza
+    // quanto il punto piu' alto dei prossimi metri, cosi' la strada oltre
+    // la cresta resta visibile invece di sparire "tagliata dal cielo".
+    let crest = f.pos.y;
+    for (const ahead of [12, 26, 42, 60]) {
+      const fd = Math.min(d + ahead, this.track.totalLength - 1);
+      crest = Math.max(crest, this.track.getFrame(fd).pos.y);
+    }
+    const lift = (crest - f.pos.y) * 1.15;
     cam.position.copyFrom(f.pos)
       .subtractInPlace(f.forward.scale(h * 0.85))
-      .addInPlace(new Vector3(0, h, 0));
+      .addInPlace(new Vector3(0, h + lift, 0));
     cam.setTarget(this.track.toWorld(Math.min(d + 14, this.track.totalLength - 1), 0, 1));
     cam.rotation.z = 0;
     if (this.inspectLabel) {

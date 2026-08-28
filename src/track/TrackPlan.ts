@@ -65,8 +65,10 @@ function makeSegment(kind: SegmentKind, rng: () => number, W: number): PlannedSe
     case 'coin-area': seg.length = 55 + rng() * 25; break;
     case 'curve-left': seg.length = 55 + rng() * 20; seg.yawDelta = +(0.55 + rng() * 0.5); break;
     case 'curve-right': seg.length = 55 + rng() * 20; seg.yawDelta = -(0.55 + rng() * 0.5); break;
-    case 'hill-up': seg.length = 55 + rng() * 20; seg.elevDelta = 6 + rng() * 5; break;
-    case 'hill-down': seg.length = 55 + rng() * 20; seg.elevDelta = -(6 + rng() * 5); break;
+    // Dossi dolci: con dislivelli forti la cresta nasconde tutto quel che
+    // c'e' dopo e la strada sembra "tagliata dal cielo".
+    case 'hill-up': seg.length = 65 + rng() * 25; seg.elevDelta = 3.5 + rng() * 2.5; break;
+    case 'hill-down': seg.length = 65 + rng() * 25; seg.elevDelta = -(3.5 + rng() * 2.5); break;
     case 'bridge': seg.length = 40; seg.width = W * 0.62; break;
     case 'gap': seg.length = 34; break;
     case 'narrow': seg.length = 45; seg.width = W * 0.55; break;
