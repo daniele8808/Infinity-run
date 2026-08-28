@@ -4,13 +4,12 @@
  */
 export interface DebugPrefs {
   fps: boolean;
-  inspect: boolean;
 }
 
 const KEY = 'ir_debug_prefs';
 
 export function loadDebugPrefs(defaultOn: boolean): DebugPrefs {
-  const base: DebugPrefs = { fps: defaultOn, inspect: defaultOn };
+  const base: DebugPrefs = { fps: defaultOn };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return { ...base, ...JSON.parse(raw) as Partial<DebugPrefs> };

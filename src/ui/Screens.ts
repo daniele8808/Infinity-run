@@ -20,6 +20,8 @@ export interface RunStats {
 export class Screens {
   private parent: HTMLElement;
   private current: HTMLElement | null = null;
+  /** Avvio dell'esplora-mappa dalle impostazioni protette. */
+  private inspectLauncher: (() => void) | null = null;
 
   constructor(parent: HTMLElement, private cfg: GameConfig) {
     this.parent = parent;
@@ -88,7 +90,6 @@ export class Screens {
         <div class="chips-row"><span class="chips-label">${s.chooseDuration}</span><div class="chips">${chips}</div></div>
         <input class="name-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="${s.insertName}" />
         <button class="btn">${s.play}</button>
-        ${this.cfg.game.debugInspect !== false ? '<button class="btn-ghost inspect-btn">🛠️ Esplora mappa (debug)</button>' : ''}
         ${iosHint}
         <button class="admin-btn" aria-label="Impostazioni">⚙️</button>
       `;
@@ -117,7 +118,9 @@ export class Screens {
         resolve({ profile, seconds, nickname, inspect });
       };
       el.querySelector<HTMLButtonElement>('.btn')!.addEventListener('click', () => submit(false));
-      el.querySelector<HTMLButtonElement>('.inspect-btn')?.addEventListener('click', () => submit(true));
+      // L'esplora-mappa vive nelle impostazioni protette: da lì si lancia
+      // con il profilo e la durata selezionati nel menu.
+      this.inspectLauncher = () => submit(true);
       el.querySelector<HTMLButtonElement>('.admin-btn')!.addEventListener('click', () => this.showAdmin());
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(false); });
     });
@@ -145,7 +148,7 @@ export class Screens {
         </div>
         <div class="admin-settings hidden">
           <label class="admin-toggle"><input type="checkbox" class="t-fps" /><span>Indicatore FPS</span></label>
-          <label class="admin-toggle"><input type="checkbox" class="t-inspect" /><span>Esplora mappa (debug)</span></label>
+          <button class="btn-ghost inspect-btn">🛠️ Esplora mappa (debug)</button>
           <div class="sub">Le modifiche si applicano al riavvio.</div>
           <button class="btn close">Chiudi</button>
         </div>
@@ -156,7 +159,6 @@ export class Screens {
     const passInput = ov.querySelector<HTMLInputElement>('.admin-pass')!;
     const error = ov.querySelector<HTMLElement>('.admin-error')!;
     const tFps = ov.querySelector<HTMLInputElement>('.t-fps')!;
-    const tInspect = ov.querySelector<HTMLInputElement>('.t-inspect')!;
     const prefs = loadDebugPrefs(this.cfg.game.debugFps ?? false);
     const initial = { ...prefs };
     passInput.focus();
@@ -165,7 +167,6 @@ export class Screens {
         lock.classList.add('hidden');
         settings.classList.remove('hidden');
         tFps.checked = prefs.fps;
-        tInspect.checked = prefs.inspect;
       } else {
         error.classList.add('show');
         passInput.value = '';
@@ -174,15 +175,16 @@ export class Screens {
     ov.querySelector('.ok')!.addEventListener('click', tryUnlock);
     passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
     ov.querySelector('.cancel')!.addEventListener('click', () => ov.remove());
-    const persist = () => {
+    tFps.addEventListener('change', () => {
       prefs.fps = tFps.checked;
-      prefs.inspect = tInspect.checked;
       saveDebugPrefs(prefs);
-    };
-    tFps.addEventListener('change', persist);
-    tInspect.addEventListener('change', persist);
+    });
+    ov.querySelector('.inspect-btn')!.addEventListener('click', () => {
+      ov.remove();
+      this.inspectLauncher?.();
+    });
     ov.querySelector('.close')!.addEventListener('click', () => {
-      if (prefs.fps !== initial.fps || prefs.inspect !== initial.inspect) location.reload();
+      if (prefs.fps !== initial.fps) location.reload();
       else ov.remove();
     });
   }
