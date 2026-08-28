@@ -165,6 +165,15 @@ export class AudioSystem {
     }
     this.updateSection();
     this.sectionTimer = window.setInterval(() => this.updateSection(), 1500);
+    // Pre-renderizza in background le sezioni successive: al cambio (e al
+    // gran finale) il loop e' gia' in cache, zero lavoro sul frame.
+    const style = this.cfg.style === 'magic' ? 'magic' : 'adventure';
+    (async () => {
+      for (const [sec, lift] of [[1, false], [2, false], [2, true]] as [number, boolean][]) {
+        await this.renderLoop(style, sec, lift).catch(() => { /* best effort */ });
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    })();
   }
 
   stopMusic(): void {

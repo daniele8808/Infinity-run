@@ -97,7 +97,7 @@ export class FinishGate {
     }
     // Insegna con testo su DynamicTexture.
     const banner = MeshBuilder.CreatePlane('finishBanner', { width: half * 2 + 3.2, height: 1.6 }, this.scene);
-    banner.position.y = 6.2;
+    banner.position.y = 7.5;
     banner.rotation.y = Math.PI;
     const tex = new DynamicTexture('finishTex', { width: 1024, height: 160 }, this.scene, true);
     tex.uScale = -1;
@@ -108,13 +108,19 @@ export class FinishGate {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // Autofit: riduce il font finché il testo entra nell'insegna.
-    let size = 96;
-    do {
-      ctx.font = `bold ${size}px Trebuchet MS, sans-serif`;
-      size -= 4;
-    } while (size > 24 && ctx.measureText(label).width > 960);
-    ctx.fillText(label, 512, 86);
+    ctx.font = 'bold 88px Trebuchet MS, sans-serif';
+    // Compressione orizzontale esplicita: alcuni renderer ignorano il
+    // maxWidth di fillText, la scala del contesto no.
+    // measureText e' inaffidabile su alcuni renderer: se il valore non e'
+    // plausibile si usa una stima per carattere (bold 88px ~ 53px/car).
+    let textW = ctx.measureText(label).width;
+    if (!(textW > label.length * 20)) textW = label.length * 53;
+    const squeeze = Math.min(1, 900 / textW);
+    ctx.save();
+    ctx.translate(512, 86);
+    ctx.scale(squeeze, 1);
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
     tex.update();
     const bMat = new StandardMaterial('finishBannerMat', this.scene);
     bMat.emissiveTexture = tex;

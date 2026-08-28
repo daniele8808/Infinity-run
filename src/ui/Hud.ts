@@ -159,10 +159,11 @@ export class Hud {
     setTimeout(() => el.remove(), 850);
   }
 
-  /** Indicatore diagnostico: fps correnti e mesh attive in scena. */
-  setFps(fps: number, activeMeshes: number): void {
+  /** Indicatore diagnostico: fps, mesh attive e posizione sulla pista. */
+  setFps(fps: number, activeMeshes: number, d?: number, segment?: string): void {
     if (!this.fpsEl) return;
-    this.fpsEl.textContent = `${Math.round(fps)} fps · ${activeMeshes} mesh`;
+    const pos = d !== undefined ? ` · d ${Math.round(d)}${segment ? ' ' + segment : ''}` : '';
+    this.fpsEl.textContent = `${Math.round(fps)} fps · ${activeMeshes} mesh${pos}`;
     this.fpsEl.classList.toggle('low', fps < 25);
   }
 

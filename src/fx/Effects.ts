@@ -94,7 +94,7 @@ export class Effects {
   /** Confetti per il traguardo. */
   celebrate(node: TransformNode): void {
     if (this.confetti) this.confetti.dispose();
-    const ps = new ParticleSystem('confetti', 400, this.scene);
+    const ps = new ParticleSystem('confetti', 200, this.scene);
     ps.particleTexture = makeCircleTexture(this.scene, '#ffffff');
     ps.emitter = node.position.add(new Vector3(0, 6, 0));
     ps.minEmitBox = new Vector3(-5, 0, -2);
@@ -104,7 +104,7 @@ export class Effects {
     ps.colorDead = new Color4(0.4, 0.85, 1, 0);
     ps.minSize = 0.12; ps.maxSize = 0.28;
     ps.minLifeTime = 1.6; ps.maxLifeTime = 3.2;
-    ps.emitRate = 130;
+    ps.emitRate = 90;
     ps.direction1 = new Vector3(-1.5, -1, -1.5);
     ps.direction2 = new Vector3(1.5, -3, 1.5);
     ps.gravity = new Vector3(0, -4, 0);
