@@ -365,3 +365,51 @@ html, body {
   color: var(--secondary);
   background: var(--primary);
 }
+
+.btn-ghost {
+  font-family: var(--font);
+  font-size: 15px; font-weight: 700;
+  color: var(--text);
+  background: rgba(0,0,0,.3);
+  border: 2px solid rgba(255,255,255,.25);
+  border-radius: 999px;
+  padding: 10px 24px;
+  cursor: pointer;
+}
+.btn-ghost:hover { border-color: var(--primary); }
+
+/* ---------- Ispettore mappa (debug) ---------- */
+.inspector { position: absolute; inset: 0; pointer-events: none; color: var(--text); }
+.inspector .pos-label {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums;
+  background: rgba(0,0,0,.55);
+  padding: 8px 20px; border-radius: 999px;
+  white-space: nowrap;
+}
+.inspector .panel {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: min(680px, 94vw);
+  background: rgba(0,0,0,.55);
+  border-radius: 18px;
+  padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+}
+.inspector .row { display: flex; align-items: center; gap: 10px; }
+.inspector .row span { font-size: 12px; font-weight: 700; opacity: .8; width: 52px; }
+.inspector input[type=range] { flex: 1; accent-color: var(--primary); height: 28px; }
+.inspector .step { display: flex; gap: 8px; justify-content: center; }
+.inspector .step button, .inspector .exit {
+  font-family: var(--font);
+  font-size: 14px; font-weight: 800;
+  color: var(--text);
+  background: rgba(255,255,255,.14);
+  border: none; border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.inspector .exit { background: var(--accent); color: #fff; }

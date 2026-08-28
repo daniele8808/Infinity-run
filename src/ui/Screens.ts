@@ -65,7 +65,7 @@ export class Screens {
    * È la porta d'ingresso white-label: le card arrivano dai profili config.
    */
   startMenu(profiles: ProfileConfig[], durations: DurationOption[], defaultSeconds: number):
-    Promise<{ profile: ProfileConfig; seconds: number; nickname: string }> {
+    Promise<{ profile: ProfileConfig; seconds: number; nickname: string; inspect: boolean }> {
     return new Promise((resolve) => {
       const s = this.cfg.strings;
       const el = document.createElement('div');
@@ -87,6 +87,7 @@ export class Screens {
         <div class="chips-row"><span class="chips-label">${s.chooseDuration}</span><div class="chips">${chips}</div></div>
         <input class="name-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="${s.insertName}" />
         <button class="btn">${s.play}</button>
+        <button class="btn-ghost inspect-btn">🛠️ Esplora mappa (debug)</button>
         ${iosHint}
       `;
       this.mount(el);
@@ -107,14 +108,15 @@ export class Screens {
         });
       });
       const input = el.querySelector<HTMLInputElement>('.name-input')!;
-      const submit = () => {
-        tryFullscreen();
+      const submit = (inspect: boolean) => {
+        if (!inspect) tryFullscreen();
         const nickname = (input.value.trim() || 'PLAYER').toUpperCase().slice(0, 12);
         this.dismiss();
-        resolve({ profile, seconds, nickname });
+        resolve({ profile, seconds, nickname, inspect });
       };
-      el.querySelector<HTMLButtonElement>('.btn')!.addEventListener('click', submit);
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+      el.querySelector<HTMLButtonElement>('.btn')!.addEventListener('click', () => submit(false));
+      el.querySelector<HTMLButtonElement>('.inspect-btn')!.addEventListener('click', () => submit(true));
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(false); });
     });
   }
 

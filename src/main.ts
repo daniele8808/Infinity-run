@@ -13,6 +13,7 @@ async function boot(): Promise<void> {
   const base = await loadConfig();
   let cfg: GameConfig = base;
   let nickname: string | undefined;
+  let inspect = false;
 
   // Menu iniziale: scelta eroe/mondo + durata + nome (se il config
   // definisce dei profili; senza profili si parte diretti).
@@ -27,9 +28,10 @@ async function boot(): Promise<void> {
     cfg = deepMerge(structuredClone(base), sel.profile.overrides) as GameConfig;
     cfg.level.duration = sel.seconds;
     nickname = sel.nickname;
+    inspect = sel.inspect;
   }
 
-  const game = new GameController(canvas, cfg, { nickname });
+  const game = new GameController(canvas, cfg, { nickname, inspect });
   await game.start();
 }
 
