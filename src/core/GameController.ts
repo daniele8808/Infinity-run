@@ -187,6 +187,9 @@ export class GameController {
       this.cfg.game.name.toUpperCase(),
     );
     await this.buildFinishLandmark();
+    // La cupola celeste copre sempre lo sfondo: il clear del colore a ogni
+    // frame è fill-rate sprecato sui telefoni.
+    this.engine.scene.autoClear = false;
     this.fx = new Effects(this.engine.scene);
     setProgress(1);
 
@@ -264,10 +267,12 @@ export class GameController {
    * di rendering a gradini (la UI resta nitida, è DOM). Si risale piano solo
    * dopo un periodo prolungato di frame rate alto.
    */
+  private static readonly PERF_LEVELS = [1, 1.35, 1.7, 2.2];
+
   private adaptResolution(fps: number): void {
     const base = 1 / Math.min(window.devicePixelRatio || 1, 2);
-    const levels = [1, 1.4, 1.8];
-    if (fps < 32 && this.perfLevel < levels.length - 1) {
+    const levels = GameController.PERF_LEVELS;
+    if (fps < 40 && this.perfLevel < levels.length - 1) {
       this.perfLevel++;
       this.perfCalm = 0;
       this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
@@ -615,7 +620,7 @@ export class GameController {
           fps,
           this.engine.scene.getActiveMeshes().length,
           pd,
-          this.track.segmentAt(pd).kind,
+          `${this.track.segmentAt(pd).kind} · res ${GameController.PERF_LEVELS[this.perfLevel]}x`,
         );
       }
 

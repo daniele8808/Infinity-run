@@ -21,6 +21,8 @@ export class GameEngine {
     this.engine.setHardwareScalingLevel(1 / dpr);
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color4(0.55, 0.8, 0.95, 1);
+    // Niente picking al passaggio del puntatore: le collisioni sono nostre.
+    this.scene.skipPointerMovePicking = true;
 
     this.ambient = new HemisphericLight('ambient', new Vector3(0.2, 1, 0.1), this.scene);
     this.ambient.intensity = 0.9;
