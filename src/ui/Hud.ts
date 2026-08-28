@@ -25,6 +25,9 @@ export class Hud {
   private maxLives: number;
   /** Chiamata quando l'utente tocca il bottone pausa. */
   onPause: (() => void) | null = null;
+  /** Chiamata quando l'utente tocca il bottone turbo. */
+  onBoost: (() => void) | null = null;
+  private boostEl: HTMLElement | null = null;
 
   constructor(parent: HTMLElement, private cfg: GameConfig) {
     this.maxLives = cfg.rules.startingLives;
@@ -44,10 +47,25 @@ export class Hud {
       <div class="hud-progress"><div class="fill"></div><div class="marker"></div></div>
       <div class="hud-hint">${isTouch ? cfg.strings.controlsHintMobile : cfg.strings.controlsHint}</div>
       <div class="hud-powerups"></div>
+      ${cfg.boost.coinsRequired > 0 ? `
+      <button class="hud-boost" aria-label="Turbo">
+        <span class="meter"></span>
+        <span class="ico">🚀</span>
+        <span class="count"></span>
+      </button>` : ''}
       ${cfg.game.debugFps ? '<div class="hud-fps">-- fps</div>' : ''}
     `;
     parent.appendChild(this.root);
     this.root.querySelector('.hud-pause')!.addEventListener('click', () => this.onPause?.());
+    this.boostEl = this.root.querySelector('.hud-boost');
+    if (this.boostEl) {
+      // stopPropagation: il tocco sul bottone non deve diventare un salto.
+      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend'] as const) {
+        this.boostEl.addEventListener(ev, (e) => e.stopPropagation());
+      }
+      this.boostEl.addEventListener('click', (e) => { e.stopPropagation(); this.onBoost?.(); });
+      this.setBoost(0, 0);
+    }
     this.livesEl = this.root.querySelector('.hud-lives')!;
     this.scoreEl = this.root.querySelector('.hud-score .value')!;
     this.multEl = this.root.querySelector('.hud-score .mult')!;
@@ -133,6 +151,19 @@ export class Hud {
   removePowerUp(kind: string): void {
     const chip = this.chips.get(kind);
     if (chip) { chip.el.remove(); this.chips.delete(kind); }
+  }
+
+  /**
+   * Stato del bottone turbo: cariche disponibili e frazione (0..1) della
+   * prossima carica in arrivo dalle monete raccolte.
+   */
+  setBoost(charges: number, frac: number): void {
+    if (!this.boostEl) return;
+    const meter = this.boostEl.querySelector<HTMLElement>('.meter')!;
+    const count = this.boostEl.querySelector<HTMLElement>('.count')!;
+    meter.style.height = `${Math.min(100, (charges > 0 ? 1 : frac) * 100)}%`;
+    count.textContent = charges > 1 ? String(charges) : '';
+    this.boostEl.classList.toggle('ready', charges > 0);
   }
 
   /** Messaggio centrale (CHECKPOINT, VIA!, combo…). */

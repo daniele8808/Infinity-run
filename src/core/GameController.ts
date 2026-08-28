@@ -62,6 +62,10 @@ export class GameController {
   private perfCalm = 0;
   private pausedGame = false;
   private pauseEl: HTMLElement | null = null;
+  // Turbo caricato dalle monete, attivato liberamente dal giocatore.
+  private boostCharges = 0;
+  private boostMeter = 0;
+  private boostTimer = 0;
 
   constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string; inspect?: boolean } = {}) {
     applyBrand(cfg);
@@ -103,7 +107,25 @@ export class GameController {
     this.hud = new Hud(ui, cfg);
     this.screens = new Screens(ui, cfg);
     this.hud.onPause = () => this.togglePause();
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.togglePause(); });
+    this.hud.onBoost = () => this.activateBoost();
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.togglePause();
+      if (e.key === 'Shift' || e.key.toLowerCase() === 'b') this.activateBoost();
+    });
+  }
+
+  /** Attiva un turbo se c'è una carica pronta: 5s di velocità extra. */
+  private activateBoost(): void {
+    if (this.phase !== 'playing' || this.pausedGame) return;
+    if (this.boostCharges <= 0 || this.boostTimer > 0) return;
+    const bc = this.cfg.boost;
+    this.boostCharges--;
+    this.boostTimer = bc.duration;
+    this.run.modifiers.speedFactor = bc.factor;
+    this.camera.setFovBoost(true);
+    this.audio.play('powerup');
+    this.hud.setBoost(this.boostCharges, this.boostMeter / Math.max(1, bc.coinsRequired));
+    this.hud.setPowerUp('speedBoost', bc.duration, bc.duration);
   }
 
   /** Pausa di gioco: overlay con riprendi, musica on/off e uscita. */
@@ -378,6 +400,18 @@ export class GameController {
     b.on('coinCollected', ({ d, x, y }) => {
       this.audio.play('coin');
       this.fx.burst(this.track.toWorld(d, x, y), Color3.FromHexString('#ffd700'));
+      // Le monete caricano il turbo (fino a maxCharges).
+      const bc = this.cfg.boost;
+      if (bc.coinsRequired > 0 && this.boostCharges < bc.maxCharges) {
+        this.boostMeter++;
+        if (this.boostMeter >= bc.coinsRequired) {
+          this.boostMeter = 0;
+          this.boostCharges++;
+          this.audio.play('combo');
+          this.hud.message(this.cfg.strings.boostReady ?? 'TURBO PRONTO!', false, 'var(--primary)');
+        }
+        this.hud.setBoost(this.boostCharges, this.boostMeter / bc.coinsRequired);
+      }
     });
     b.on('scoreChanged', ({ score, delta }) => {
       this.hud.setScore(score);
@@ -529,6 +563,17 @@ export class GameController {
     if (this.phase === 'playing') {
       this.playTime += dt;
       this.timeLeft -= dt;
+
+      // Turbo attivo: countdown e ritorno alla velocità normale.
+      if (this.boostTimer > 0) {
+        this.boostTimer -= dt;
+        this.hud.setPowerUp('speedBoost', Math.max(0, this.boostTimer), this.cfg.boost.duration);
+        if (this.boostTimer <= 0) {
+          this.run.modifiers.speedFactor = 1;
+          this.camera.setFovBoost(false);
+          this.hud.removePowerUp('speedBoost');
+        }
+      }
       const canHit = !this.playerProtected;
       this.coins.update(dt, pd, px, py);
       this.obstacles.update(dt, pd, px, py, canHit);

@@ -80,6 +80,12 @@
     "radius": 1.0,
     "scale": 1.6
   },
+  "boost": {
+    "coinsRequired": 15,
+    "duration": 5,
+    "factor": 1.5,
+    "maxCharges": 3
+  },
   "powerUps": {
     "enabled": [
       "shield",
@@ -168,7 +174,8 @@
     "on": "SÌ",
     "off": "NO",
     "exitGame": "ESCI DAL GIOCO",
-    "missed": "Globi mancati"
+    "missed": "Globi mancati",
+    "boostReady": "TURBO PRONTO!"
   },
   "profiles": [
     {
