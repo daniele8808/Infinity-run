@@ -197,7 +197,14 @@ export interface GameConfig {
   profiles?: ProfileConfig[];
   /** Durate proposte nel menu; vuoto = si usa level.duration. */
   durationOptions?: DurationOption[];
-  game: { name: string; version: string; debugFps?: boolean };
+  game: {
+    name: string; version: string;
+    debugFps?: boolean;
+    /** Mostra il bottone "Esplora mappa" nel menu (default: come debugFps). */
+    debugInspect?: boolean;
+    /** Password della pagina impostazioni nel menu. */
+    adminPassword?: string;
+  };
   brand: BrandConfig;
   character: CharacterConfig;
   movement: MovementConfig;

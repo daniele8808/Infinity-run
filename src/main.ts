@@ -5,12 +5,17 @@ import type { GameConfig } from './config/types';
 import { GameController } from './core/GameController';
 import { Screens } from './ui/Screens';
 import { registerServiceWorker } from './ui/fullscreen';
+import { loadDebugPrefs } from './ui/debugPrefs';
 
 registerServiceWorker();
 
 async function boot(): Promise<void> {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   const base = await loadConfig();
+  // Le preferenze salvate dalla pagina impostazioni vincono sul config.
+  const dbg = loadDebugPrefs(base.game.debugFps ?? false);
+  base.game.debugFps = dbg.fps;
+  base.game.debugInspect = dbg.inspect;
   let cfg: GameConfig = base;
   let nickname: string | undefined;
   let inspect = false;

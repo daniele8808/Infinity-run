@@ -50,6 +50,12 @@ export class TrackSystem {
         const yawRate = (seg.yawDelta * (ease(t1) - ease(t0))) / dl;
         yaw += seg.yawDelta * (ease(t1) - ease(t0));
         y += seg.elevDelta * (ease(t1) - ease(t0));
+        // Ponti ad arco: salgono all'ingresso e ridiscendono all'uscita
+        // (contributo netto nullo: sin(0) = sin(pi) = 0).
+        if (seg.kind === 'bridge' || seg.kind === 'narrow') {
+          const arch = seg.length * 0.045;
+          y += arch * (Math.sin(Math.PI * t1) - Math.sin(Math.PI * t0));
+        }
         x += Math.sin(yaw) * dl;
         z += Math.cos(yaw) * dl;
         d += dl;

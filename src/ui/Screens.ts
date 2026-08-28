@@ -1,6 +1,7 @@
 import type { DurationOption, GameConfig, ProfileConfig } from '../config/types';
 import type { LeaderboardEntry } from '../leaderboard/Leaderboard';
 import { isIos, isStandalone, tryFullscreen } from './fullscreen';
+import { loadDebugPrefs, saveDebugPrefs } from './debugPrefs';
 
 export interface RunStats {
   score: number;
@@ -87,8 +88,9 @@ export class Screens {
         <div class="chips-row"><span class="chips-label">${s.chooseDuration}</span><div class="chips">${chips}</div></div>
         <input class="name-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="${s.insertName}" />
         <button class="btn">${s.play}</button>
-        <button class="btn-ghost inspect-btn">🛠️ Esplora mappa (debug)</button>
+        ${this.cfg.game.debugInspect !== false ? '<button class="btn-ghost inspect-btn">🛠️ Esplora mappa (debug)</button>' : ''}
         ${iosHint}
+        <button class="admin-btn" aria-label="Impostazioni">⚙️</button>
       `;
       this.mount(el);
       let profile = profiles[0];
@@ -115,8 +117,73 @@ export class Screens {
         resolve({ profile, seconds, nickname, inspect });
       };
       el.querySelector<HTMLButtonElement>('.btn')!.addEventListener('click', () => submit(false));
-      el.querySelector<HTMLButtonElement>('.inspect-btn')!.addEventListener('click', () => submit(true));
+      el.querySelector<HTMLButtonElement>('.inspect-btn')?.addEventListener('click', () => submit(true));
+      el.querySelector<HTMLButtonElement>('.admin-btn')!.addEventListener('click', () => this.showAdmin());
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(false); });
+    });
+  }
+
+  /**
+   * Pagina impostazioni protetta da password: attiva/disattiva gli
+   * strumenti di debug (badge FPS, esplora mappa). Le preferenze sono
+   * salvate sul dispositivo e applicate con un riavvio della pagina.
+   */
+  private showAdmin(): void {
+    const pass = this.cfg.game.adminPassword ?? '1234';
+    const ov = document.createElement('div');
+    ov.className = 'admin-overlay';
+    ov.innerHTML = `
+      <div class="admin-card">
+        <h3>Impostazioni</h3>
+        <div class="admin-lock">
+          <input class="admin-pass" type="password" inputmode="numeric" maxlength="16" placeholder="Password" />
+          <div class="admin-error">Password errata</div>
+          <div class="admin-row">
+            <button class="btn-ghost cancel">Annulla</button>
+            <button class="btn ok">OK</button>
+          </div>
+        </div>
+        <div class="admin-settings hidden">
+          <label class="admin-toggle"><input type="checkbox" class="t-fps" /><span>Indicatore FPS</span></label>
+          <label class="admin-toggle"><input type="checkbox" class="t-inspect" /><span>Esplora mappa (debug)</span></label>
+          <div class="sub">Le modifiche si applicano al riavvio.</div>
+          <button class="btn close">Chiudi</button>
+        </div>
+      </div>`;
+    this.parent.appendChild(ov);
+    const lock = ov.querySelector('.admin-lock')!;
+    const settings = ov.querySelector('.admin-settings')!;
+    const passInput = ov.querySelector<HTMLInputElement>('.admin-pass')!;
+    const error = ov.querySelector<HTMLElement>('.admin-error')!;
+    const tFps = ov.querySelector<HTMLInputElement>('.t-fps')!;
+    const tInspect = ov.querySelector<HTMLInputElement>('.t-inspect')!;
+    const prefs = loadDebugPrefs(this.cfg.game.debugFps ?? false);
+    const initial = { ...prefs };
+    passInput.focus();
+    const tryUnlock = () => {
+      if (passInput.value === pass) {
+        lock.classList.add('hidden');
+        settings.classList.remove('hidden');
+        tFps.checked = prefs.fps;
+        tInspect.checked = prefs.inspect;
+      } else {
+        error.classList.add('show');
+        passInput.value = '';
+      }
+    };
+    ov.querySelector('.ok')!.addEventListener('click', tryUnlock);
+    passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+    ov.querySelector('.cancel')!.addEventListener('click', () => ov.remove());
+    const persist = () => {
+      prefs.fps = tFps.checked;
+      prefs.inspect = tInspect.checked;
+      saveDebugPrefs(prefs);
+    };
+    tFps.addEventListener('change', persist);
+    tInspect.addEventListener('change', persist);
+    ov.querySelector('.close')!.addEventListener('click', () => {
+      if (prefs.fps !== initial.fps || prefs.inspect !== initial.inspect) location.reload();
+      else ov.remove();
     });
   }
 

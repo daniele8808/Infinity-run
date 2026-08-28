@@ -106,9 +106,14 @@ export class ObstacleSystem {
         }
         case 'log': {
           const inst = logTemplate.createInstance(`ob_log_${d}`);
+          // Il tronco si adatta alla larghezza reale della strada in quel
+          // punto: sulle passerelle strette non deve sbordare nel vuoto.
+          const roadW = this.track.getFrame(d).width;
+          const sx = Math.min(1, Math.max(0.45, (roadW - 0.9) / 4.4));
+          inst.scaling.x = sx;
           node = inst;
           inst.position.y = 0.45;
-          hx = 2.2; hd = 0.75; height = 0.95;
+          hx = (4.4 * sx) / 2; hd = 0.75; height = 0.95;
           break;
         }
         case 'barrier': {

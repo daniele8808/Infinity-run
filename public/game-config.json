@@ -2,7 +2,8 @@
   "game": {
     "name": "Avventura nella Valle",
     "version": "0.1.0",
-    "debugFps": true
+    "debugFps": true,
+    "adminPassword": "1234"
   },
   "brand": {
     "logo": "",

@@ -143,13 +143,14 @@ html, body {
 }
 .hud-fps.low { color: #ff8080; }
 
+.hud-right { display: flex; align-items: center; gap: 8px; }
 .hud-pause {
-  position: absolute; top: 96px; left: 20px;
-  width: 42px; height: 42px; border-radius: 50%;
+  width: 40px; height: 40px; border-radius: 50%;
   border: none; font-family: var(--font);
-  font-size: 15px; font-weight: 900; letter-spacing: 2px;
-  color: #fff; background: rgba(0,0,0,.45);
+  font-size: 14px; font-weight: 900; letter-spacing: 2px;
+  color: #fff; background: rgba(0,0,0,.4);
   pointer-events: auto; cursor: pointer;
+  flex: none;
 }
 .hud-pause:active { transform: scale(.92); }
 
@@ -177,6 +178,47 @@ html, body {
 }
 .pause-overlay button.primary { background: var(--primary); color: #1a1206; }
 .pause-overlay button:active { transform: scale(.96); }
+
+/* Impostazioni protette (menu) */
+.admin-btn {
+  position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); right: 16px;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; background: rgba(255,255,255,.08);
+  font-size: 20px; cursor: pointer; opacity: .7;
+}
+.admin-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 8, 12, .6); backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+.admin-card {
+  background: var(--ui-bg);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px; padding: 24px 22px;
+  width: min(340px, 86vw);
+  display: flex; flex-direction: column; gap: 12px;
+  text-align: center;
+}
+.admin-card h3 { font-size: 22px; font-weight: 900; letter-spacing: 1px; color: var(--primary); }
+.admin-lock, .admin-settings { display: flex; flex-direction: column; gap: 12px; }
+.admin-lock.hidden, .admin-settings.hidden { display: none; }
+.admin-pass {
+  font-family: var(--font); font-size: 20px; font-weight: 800; text-align: center;
+  letter-spacing: 6px;
+  padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2);
+  background: rgba(0,0,0,.3); color: var(--text);
+}
+.admin-error { display: none; color: #ff8080; font-size: 13px; font-weight: 700; }
+.admin-error.show { display: block; }
+.admin-row { display: flex; gap: 10px; justify-content: center; }
+.admin-toggle {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 16px; font-weight: 700; text-align: left;
+  background: rgba(255,255,255,.07); border-radius: 12px; padding: 12px 14px;
+  cursor: pointer;
+}
+.admin-toggle input { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
 
 /* Messaggi centrali */
 .center-msg {

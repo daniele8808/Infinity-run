@@ -87,7 +87,8 @@ export class TrackBuilder {
       }
       const seg = t.segmentAt(d);
       const half = frame.width / 2;
-      const isBridge = seg.kind === 'bridge';
+      // Le strette sono passerelle di legno: stesso impalcato dei ponti.
+      const isBridge = seg.kind === 'bridge' || seg.kind === 'narrow';
       const base = isBridge ? p.bridge : (Math.floor(d / 14) % 2 === 0 ? p.road : p.roadAlt);
 
       // 4 vertici per riga: bordo sx, corsia sx, corsia dx, bordo dx.
@@ -181,7 +182,7 @@ export class TrackBuilder {
         rowGap = t.isGap(d);
         // Stessa regola a due righe del piano stradale: il fianco esiste
         // solo dove esiste la strada sopra (niente muri orfani nel fosso).
-        skip = rowGap || prevRowGap || seg.kind === 'bridge';
+        skip = rowGap || prevRowGap || seg.kind === 'bridge' || seg.kind === 'narrow';
       }
       prevRowGap = rowGap;
       const half = frame.width / 2;
@@ -272,7 +273,7 @@ export class TrackBuilder {
     // Punti in cui il blocco solido della strada si interrompe.
     const capDs: number[] = [-LEAD_IN + 0.1];
     for (const seg of t.plan) {
-      if (seg.kind === 'bridge') { capDs.push(seg.startD - 0.1, seg.startD + seg.length + 0.1); }
+      if (seg.kind === 'bridge' || seg.kind === 'narrow') { capDs.push(seg.startD - 0.1, seg.startD + seg.length + 0.1); }
     }
     const positions: number[] = [];
     const indices: number[] = [];
@@ -322,7 +323,7 @@ export class TrackBuilder {
     let template: Mesh | null = null;
     const frame = t.getFrame(0);
     for (const seg of t.plan) {
-      if (seg.kind !== 'bridge') continue;
+      if (seg.kind !== 'bridge' && seg.kind !== 'narrow') continue;
       for (const side of [-1, 1]) {
         const pathPoints: Vector3[] = [];
         for (let d = seg.startD + 1.5; d <= seg.startD + seg.length - 1.5; d += 3) {
@@ -363,7 +364,7 @@ export class TrackBuilder {
     mat.diffuseColor = this.palette.rail;
     mat.backFaceCulling = false;
     for (const seg of t.plan) {
-      if (seg.kind !== 'bridge') continue;
+      if (seg.kind !== 'bridge' && seg.kind !== 'narrow') continue;
       for (const side of [-1, 1]) {
         const positions: number[] = [];
         const indices: number[] = [];
