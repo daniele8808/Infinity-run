@@ -81,6 +81,7 @@ export const NIGHT_VARIANT: ForestVariant = {
 };
 
 export const FOREST_PALETTE: TrackPalette = {
+  gapGlow: Color3.FromHexString('#ffb703'),
   road: Color3.FromHexString('#d8b57f'),
   roadAlt: Color3.FromHexString('#cfa971'),
   edge: Color3.FromHexString('#b3854f'),
@@ -394,7 +395,10 @@ export class ForestTheme {
       mesh.parent = node;
       mesh.position.setAll(0);
       const cm = mesh.material as StandardMaterial;
-      if (cm && 'emissiveColor' in cm) cm.emissiveColor = this.variant.night ? new Color3(0.1, 0.11, 0.18) : new Color3(0.45, 0.47, 0.5);
+      if (cm && 'emissiveColor' in cm) {
+        cm.emissiveColor = this.variant.night ? new Color3(0.07, 0.08, 0.14) : new Color3(0.45, 0.47, 0.5);
+        if (this.variant.night && 'diffuseColor' in cm) cm.diffuseColor = Color3.FromHexString('#3c4468');
+      }
       const s = 6 + rng() * 9;
       node.scaling.setAll(s);
       node.position.set(

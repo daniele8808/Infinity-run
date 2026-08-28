@@ -28,6 +28,7 @@ export interface ThemeDefinition {
 }
 
 const NIGHT_PALETTE: TrackPalette = {
+  gapGlow: Color3.FromHexString('#66e0ff'),
   road: Color3.FromHexString('#8a8fae'),
   roadAlt: Color3.FromHexString('#7d82a0'),
   edge: Color3.FromHexString('#666b8a'),
@@ -57,9 +58,9 @@ export const THEMES: Record<string, ThemeDefinition> = {
     create: (scene, track, assetPath) => new ForestTheme(scene, track, assetPath, NIGHT_VARIANT),
     palette: NIGHT_PALETTE,
     lighting: {
-      ambientIntensity: 0.62, ambientColor: '#a9b8ff', groundColor: '#1c2340',
-      sunIntensity: 0.55, sunColor: '#bcd0ff',
-      fogColor: '#101736', fogDensity: 0.0028, clearColor: '#0a0f26',
+      ambientIntensity: 0.78, ambientColor: '#b4c2ff', groundColor: '#2a3358',
+      sunIntensity: 0.6, sunColor: '#c4d6ff',
+      fogColor: '#1a2348', fogDensity: 0.0012, clearColor: '#0a0f26',
     },
   },
 };
