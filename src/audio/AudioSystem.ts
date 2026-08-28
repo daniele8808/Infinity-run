@@ -29,12 +29,18 @@ export class AudioSystem {
 
   /** Da chiamare alla prima interazione utente (autoplay policy). */
   unlock(): void {
-    if (this.ctx) { this.ctx.resume(); this.playSilentKeepalive(); return; }
+    if (this.ctx) { this.resumeIfNeeded(); return; }
     this.ctx = new AudioContext();
     this.playSilentKeepalive();
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) this.ctx?.resume();
-    });
+    // iOS sospende o "interrompe" il contesto per blocco schermo, chiamate,
+    // Siri o cambio app, e non sempre lo riattiva da solo: si riprende a
+    // ogni gesto e a ogni ritorno in primo piano.
+    const wake = () => this.resumeIfNeeded();
+    document.addEventListener('pointerdown', wake, true);
+    document.addEventListener('touchstart', wake, true);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+    window.addEventListener('pageshow', wake);
+    window.addEventListener('focus', wake);
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.gain.value = this.cfg.sfxVolume;
     this.sfxGain.connect(this.ctx.destination);
@@ -177,10 +183,33 @@ export class AudioSystem {
     })();
   }
 
+  /**
+   * Riattiva il contesto audio se iOS lo ha sospeso o interrotto.
+   * Sicuro da chiamare spesso: non fa nulla quando è già attivo.
+   */
+  resumeIfNeeded(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (ctx.state !== 'running') ctx.resume().catch(() => { /* al prossimo gesto */ });
+    if (this.silentEl) {
+      if (this.silentEl.paused) this.silentEl.play().catch(() => { /* idem */ });
+    } else {
+      this.playSilentKeepalive();
+    }
+  }
+
   /** Attiva/disattiva la musica (gli effetti restano attivi). */
   setMusicEnabled(on: boolean): void {
     this.musicOn = on;
     if (this.musicGain) this.musicGain.gain.value = on ? this.cfg.musicVolume : 0;
+    if (on) {
+      this.resumeIfNeeded();
+      // Se il loop e' morto (contesto interrotto a lungo), si riparte.
+      if (this.started && !this.activeSource && !this.musicBuffer) {
+        this.currentKey = '';
+        this.updateSection();
+      }
+    }
   }
   get musicEnabled(): boolean { return this.musicOn; }
 
@@ -194,6 +223,9 @@ export class AudioSystem {
 
   /** Cambia sezione/tonalità quando il progresso lo richiede. */
   private updateSection(): void {
+    // Controllo periodico (1.5s): se iOS ha sospeso il contesto mentre la
+    // musica girava, questo lo riattiva senza aspettare un gesto.
+    this.resumeIfNeeded();
     const style = this.cfg.style === 'magic' ? 'magic' : 'adventure';
     const section = this.intensity < 0.35 ? 0 : this.intensity < 0.7 ? 1 : 2;
     const lift = this.intensity > 0.85 ? 1 : 0;
