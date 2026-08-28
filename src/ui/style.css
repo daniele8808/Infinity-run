@@ -127,8 +127,10 @@ html, body {
   opacity: .85; text-shadow: 0 2px 4px rgba(0,0,0,.6);
   background: rgba(0,0,0,.3); border-radius: 18px; padding: 6px 16px;
   transition: opacity 1s;
-  /* Centrata anche quando il testo va su due righe. */
-  text-align: center; width: max-content; max-width: 88vw;
+  /* Due righe centrate, senza mai finire sotto il bottone turbo. */
+  text-align: center; width: max-content;
+  max-width: min(72vw, calc(100vw - 190px));
+  line-height: 1.5;
 }
 .hud-hint.fade { opacity: 0; }
 

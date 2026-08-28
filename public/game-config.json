@@ -81,9 +81,9 @@
     "scale": 1.6
   },
   "boost": {
-    "coinsRequired": 15,
+    "coinsRequired": 50,
     "duration": 5,
-    "factor": 1.5,
+    "factor": 3.0,
     "maxCharges": 3
   },
   "powerUps": {

@@ -45,7 +45,7 @@ export class Hud {
         </div>
       </div>
       <div class="hud-progress"><div class="fill"></div><div class="marker"></div></div>
-      <div class="hud-hint">${isTouch ? cfg.strings.controlsHintMobile : cfg.strings.controlsHint}</div>
+      <div class="hud-hint">${(isTouch ? cfg.strings.controlsHintMobile : cfg.strings.controlsHint).replace(' · ', '<br>')}</div>
       <div class="hud-powerups"></div>
       ${cfg.boost.coinsRequired > 0 ? `
       <button class="hud-boost" aria-label="Turbo">
