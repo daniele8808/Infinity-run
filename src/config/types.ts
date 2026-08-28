@@ -212,8 +212,6 @@ export interface GameConfig {
   game: {
     name: string; version: string;
     debugFps?: boolean;
-    /** Mostra il bottone "Esplora mappa" nel menu (default: come debugFps). */
-    debugInspect?: boolean;
     /** Password della pagina impostazioni nel menu. */
     adminPassword?: string;
   };
