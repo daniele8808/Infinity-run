@@ -20,8 +20,9 @@ export interface TrackPalette {
 
 const SAMPLE = 2;
 const SKIRT_DEPTH = 4;
-/** Metri di strada extra dietro la linea di partenza (mai 'muro' in camera). */
+/** Metri di strada extra dietro la partenza e oltre il traguardo. */
 const LEAD_IN = 26;
+const LEAD_OUT = 60;
 
 /**
  * Costruisce le mesh del percorso: nastro stradale con vertex color,
@@ -55,12 +56,14 @@ export class TrackBuilder {
     const t = this.track;
     const p = this.palette;
     const rows: { d: number; skip: boolean }[] = [];
-    for (let d = -LEAD_IN; d <= t.totalLength; d += SAMPLE) rows.push({ d, skip: false });
+    for (let d = -LEAD_IN; d <= t.totalLength + LEAD_OUT; d += SAMPLE) rows.push({ d, skip: false });
 
     let vi = 0;
     const frame = t.getFrame(0);
     const f0 = t.getFrame(0.1);
     const lead = { fwd: f0.forward.clone(), right: f0.right.clone(), pos: f0.pos.clone(), width: f0.width };
+    const fEnd = t.getFrame(t.totalLength - 0.1);
+    const tail = { fwd: fEnd.forward.clone(), right: fEnd.right.clone(), pos: fEnd.pos.clone(), width: fEnd.width };
     for (let r = 0; r < rows.length; r++) {
       const { d } = rows[r];
       if (d < 0) {
@@ -68,6 +71,12 @@ export class TrackBuilder {
         frame.pos.copyFrom(lead.pos).addInPlace(lead.fwd.scale(d));
         frame.right.copyFrom(lead.right);
         frame.width = lead.width;
+        frame.kind = 'straight';
+      } else if (d > t.totalLength) {
+        // Estrapolazione oltre il traguardo: il mondo non finisce li'.
+        frame.pos.copyFrom(tail.pos).addInPlace(tail.fwd.scale(d - t.totalLength));
+        frame.right.copyFrom(tail.right);
+        frame.width = tail.width;
         frame.kind = 'straight';
       } else {
         t.getFrame(d, frame);
@@ -110,8 +119,8 @@ export class TrackBuilder {
             rr.x, rr.y - 4, rr.z,
             l.x, l.y - 4, l.z,
           );
-          // Interno quasi nero: il vuoto si legge come vuoto anche in salita.
-          const c = p.skirt.scale(0.18);
+          // Interno in terra scura: vuoto leggibile senza sembrare un glitch.
+          const c = p.skirt.scale(0.42);
           colors.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 1, c.r * 0.4, c.g * 0.4, c.b * 0.4, 1, c.r * 0.4, c.g * 0.4, c.b * 0.4, 1);
           normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
           indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
@@ -144,20 +153,33 @@ export class TrackBuilder {
     const frame = t.getFrame(0);
     const f0 = t.getFrame(0.1);
     const lead = { fwd: f0.forward.clone(), right: f0.right.clone(), pos: f0.pos.clone(), width: f0.width };
+    const fEndS = t.getFrame(t.totalLength - 0.1);
+    const tailS = { fwd: fEndS.forward.clone(), right: fEndS.right.clone(), pos: fEndS.pos.clone(), width: fEndS.width };
     let vi = 0;
     let prevOk = false;
-    for (let d = -LEAD_IN; d <= t.totalLength; d += SAMPLE) {
+    let prevRowGap = false;
+    for (let d = -LEAD_IN; d <= t.totalLength + LEAD_OUT; d += SAMPLE) {
       let skip: boolean;
+      let rowGap = false;
       if (d < 0) {
         frame.pos.copyFrom(lead.pos).addInPlace(lead.fwd.scale(d));
         frame.right.copyFrom(lead.right);
         frame.width = lead.width;
         skip = false;
+      } else if (d > t.totalLength) {
+        frame.pos.copyFrom(tailS.pos).addInPlace(tailS.fwd.scale(d - t.totalLength));
+        frame.right.copyFrom(tailS.right);
+        frame.width = tailS.width;
+        skip = false;
       } else {
         t.getFrame(d, frame);
         const seg = t.segmentAt(d);
-        skip = t.isGap(d) || seg.kind === 'bridge';
+        rowGap = t.isGap(d);
+        // Stessa regola a due righe del piano stradale: il fianco esiste
+        // solo dove esiste la strada sopra (niente muri orfani nel fosso).
+        skip = rowGap || prevRowGap || seg.kind === 'bridge';
       }
+      prevRowGap = rowGap;
       const half = frame.width / 2;
       for (const side of [-1, 1]) {
         const top = frame.pos.add(frame.right.scale(side * half));
@@ -198,7 +220,7 @@ export class TrackBuilder {
     mat.disableLighting = true;
     const frame = t.getFrame(0);
     for (const [a, b] of t.gaps) {
-      for (const edgeD of [a - 1.1, b + 1.1]) {
+      for (const edgeD of [a - 2.7, b + 2.7]) {
         t.getFrame(edgeD, frame);
         const strip = MeshBuilder.CreateBox(`gapGlow_${edgeD}`, {
           width: frame.width - 0.4, height: 0.1, depth: 0.8,
@@ -222,7 +244,7 @@ export class TrackBuilder {
     const t = this.track;
     const p = this.palette;
     // Punti in cui il blocco solido della strada si interrompe.
-    const capDs: number[] = [t.totalLength - 0.15, -LEAD_IN + 0.1];
+    const capDs: number[] = [-LEAD_IN + 0.1];
     for (const seg of t.plan) {
       if (seg.kind === 'bridge') { capDs.push(seg.startD - 0.1, seg.startD + seg.length + 0.1); }
     }
@@ -262,40 +284,38 @@ export class TrackBuilder {
     mesh.freezeWorldMatrix();
   }
 
-  /** Parapetti in legno sui ponti e nei passaggi stretti. */
+  /**
+   * Parapetti in legno: solo sui ponti. Pali e corrimano sono campionati
+   * negli STESSI punti, cosi' il corrimano passa esattamente sulle teste
+   * dei pali (niente legni sospesi o scollegati).
+   */
   private buildRails(): void {
     const t = this.track;
-    const postMatName = 'railMat';
-    const mat = this.makeMat(postMatName);
+    const mat = this.makeMat('railMat');
     mat.diffuseColor = this.palette.rail;
     let template: Mesh | null = null;
     const frame = t.getFrame(0);
     for (const seg of t.plan) {
-      if (seg.kind !== 'bridge' && seg.kind !== 'narrow') continue;
-      for (let d = seg.startD + 2; d < seg.startD + seg.length - 2; d += 4) {
-        t.getFrame(d, frame);
-        const half = frame.width / 2 - 0.18;
-        for (const side of [-1, 1]) {
+      if (seg.kind !== 'bridge') continue;
+      for (const side of [-1, 1]) {
+        const pathPoints: Vector3[] = [];
+        for (let d = seg.startD + 1.5; d <= seg.startD + seg.length - 1.5; d += 3) {
+          t.getFrame(d, frame);
+          const half = frame.width / 2 - 0.18;
+          const base = frame.pos.add(frame.right.scale(side * half));
           if (!template) {
             template = MeshBuilder.CreateBox('railPost', { width: 0.22, height: 1.0, depth: 0.22 }, this.scene);
             template.material = mat;
             template.parent = this.root;
           }
           const inst = template.createInstance(`rail_${d}_${side}`);
-          inst.position = frame.pos.add(frame.right.scale(side * half));
-          inst.position.y += 0.42;
+          inst.position = base.clone();
+          inst.position.y += 0.46;
           inst.parent = this.root;
           inst.freezeWorldMatrix();
-        }
-      }
-      // Corrimano.
-      for (const side of [-1, 1]) {
-        const pathPoints: Vector3[] = [];
-        for (let d = seg.startD + 1; d <= seg.startD + seg.length - 1; d += 3) {
-          t.getFrame(d, frame);
-          const v = frame.pos.add(frame.right.scale(side * (frame.width / 2 - 0.18)));
-          v.y += 0.94;
-          pathPoints.push(v);
+          const top = base.clone();
+          top.y += 0.96;
+          pathPoints.push(top);
         }
         if (pathPoints.length > 1) {
           const tube = MeshBuilder.CreateTube(`railTube${seg.startD}_${side}`, { path: pathPoints, radius: 0.09, tessellation: 6 }, this.scene);
@@ -397,10 +417,13 @@ export class TrackBuilder {
       if (seg.kind !== 'bridge') continue;
       const mid = seg.startD + seg.length / 2;
       this.track.getFrame(mid, frame);
-      const water = MeshBuilder.CreateGround(`water_${seg.startD}`, { width: 46, height: 10, subdivisions: 1 }, this.scene);
+      // Fiume vero: attraversa tutta la valle e riempie la conca del ponte;
+      // dove il terreno risale oltre il livello dell'acqua nascono le sponde.
+      // Il terreno nella conca scende fino a roadY-2.3: l'acqua deve stare
+      // appena SOPRA quel fondo, altrimenti resta sepolta e invisibile.
+      const water = MeshBuilder.CreateGround(`water_${seg.startD}`, { width: 240, height: 26, subdivisions: 1 }, this.scene);
       water.position = frame.pos.clone();
-      water.position.y -= 3.3;
-      // Local X (46 m) di traverso, local Z (10 m) lungo il percorso.
+      water.position.y = frame.pos.y - 2.0;
       water.rotation.y = Math.atan2(frame.forward.x, frame.forward.z);
       water.material = mat;
       water.parent = this.root;
