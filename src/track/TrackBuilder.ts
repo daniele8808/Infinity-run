@@ -110,8 +110,9 @@ export class TrackBuilder {
             rr.x, rr.y - 4, rr.z,
             l.x, l.y - 4, l.z,
           );
-          const c = p.skirt;
-          colors.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 1, c.r * 0.55, c.g * 0.55, c.b * 0.55, 1, c.r * 0.55, c.g * 0.55, c.b * 0.55, 1);
+          // Interno quasi nero: il vuoto si legge come vuoto anche in salita.
+          const c = p.skirt.scale(0.18);
+          colors.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 1, c.r * 0.4, c.g * 0.4, c.b * 0.4, 1, c.r * 0.4, c.g * 0.4, c.b * 0.4, 1);
           normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
           indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
@@ -200,10 +201,10 @@ export class TrackBuilder {
       for (const edgeD of [a - 1.1, b + 1.1]) {
         t.getFrame(edgeD, frame);
         const strip = MeshBuilder.CreateBox(`gapGlow_${edgeD}`, {
-          width: frame.width - 0.5, height: 0.06, depth: 0.5,
+          width: frame.width - 0.4, height: 0.1, depth: 0.8,
         }, this.scene);
         strip.position = frame.pos.clone();
-        strip.position.y += 0.06;
+        strip.position.y += 0.09;
         strip.rotation.y = Math.atan2(frame.forward.x, frame.forward.z);
         strip.material = mat;
         strip.isPickable = false;

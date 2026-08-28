@@ -68,8 +68,8 @@ export const DAY_VARIANT: ForestVariant = {
 
 export const NIGHT_VARIANT: ForestVariant = {
   night: true,
-  skyStops: ['#070b22', '#141d4d', '#2a2564', '#4a2a6b'],
-  terrainMul: [0.38, 0.42, 0.75],
+  skyStops: ['#0a1030', '#1b2760', '#443a8a', '#7a4fa8'],
+  terrainMul: [0.58, 0.62, 1.0],
   mountainColor: '#3d4463',
   mountainCap: '#aebbe8',
   cloudCount: 5,
@@ -211,7 +211,7 @@ export class ForestTheme {
       const rng = createRng(12);
       for (let i = 0; i < 420; i++) {
         const x = rng() * W;
-        const y = rng() * rng() * H * 0.68;
+        const y = rng() * H * 0.85;
         const r = 0.5 + rng() * 1.3;
         ctx.fillStyle = rng() < 0.15 ? '#cfe0ff' : '#ffffff';
         ctx.globalAlpha = 0.35 + rng() * 0.65;

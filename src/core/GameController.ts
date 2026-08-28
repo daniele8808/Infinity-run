@@ -378,7 +378,12 @@ export class GameController {
       this.fpsAcc += dt;
       if (this.fpsAcc > 0.5) {
         this.fpsAcc = 0;
-        this.hud.setFps(this.engine.engine.getFps(), this.engine.scene.getActiveMeshes().length);
+        this.hud.setFps(
+          this.engine.engine.getFps(),
+          this.engine.scene.getActiveMeshes().length,
+          pd,
+          this.track.segmentAt(pd).kind,
+        );
       }
 
       if (pd >= this.track.finishD) this.finish(true);
