@@ -21,7 +21,7 @@ import { Hud } from '../ui/Hud';
 import { Screens } from '../ui/Screens';
 import { createLeaderboard, type LeaderboardProvider } from '../leaderboard/Leaderboard';
 
-type Phase = 'boot' | 'name' | 'intro' | 'countdown' | 'playing' | 'finishing' | 'results';
+type Phase = 'boot' | 'name' | 'intro' | 'countdown' | 'playing' | 'finishing' | 'results' | 'inspect';
 
 /** Orchestratore: possiede i sistemi, gestisce il flusso e le regole. */
 export class GameController {
@@ -52,9 +52,12 @@ export class GameController {
   private timeLeft: number;
   private readonly timeLimit: number;
   private playTime = 0;
+  private inspectD = 0;
+  private inspectH = 34;
+  private inspectLabel: HTMLElement | null = null;
   private fpsAcc = 0;
 
-  constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string } = {}) {
+  constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string; inspect?: boolean } = {}) {
     applyBrand(cfg);
     this.engine = new GameEngine(canvas);
     this.track = new TrackSystem(cfg.level, cfg.movement);
@@ -133,6 +136,11 @@ export class GameController {
     this.engine.onUpdate((dt) => this.update(dt));
 
     await new Promise((r) => setTimeout(r, 350));
+    if (this.opts.inspect) {
+      this.screens.dismiss();
+      this.enterInspector();
+      return;
+    }
     if (this.opts.nickname) {
       this.nickname = this.opts.nickname;
       this.screens.dismiss();
@@ -142,6 +150,69 @@ export class GameController {
     }
     this.audio.unlock();
     await this.playIntro();
+  }
+
+  /**
+   * Modalità debug: camera-drone che sorvola l'intero percorso, guidata
+   * da slider di posizione e quota. Serve a mandare feedback puntuali
+   * ("a d 850 c'è X") senza dover giocare fino al punto.
+   */
+  private enterInspector(): void {
+    this.phase = 'inspect';
+    this.character.visual.setEnabled(false);
+    this.fx.blobShadow.setEnabled(false);
+    const ui = document.getElementById('ui')!;
+    const el = document.createElement('div');
+    el.className = 'inspector';
+    el.innerHTML = `
+      <div class="pos-label">d 0</div>
+      <div class="panel">
+        <div class="row"><span>Pista</span><input class="d-slider" type="range" min="0" max="${Math.floor(this.track.totalLength - 1)}" step="1" value="0" /></div>
+        <div class="row"><span>Quota</span><input class="h-slider" type="range" min="8" max="90" step="1" value="${this.inspectH}" /></div>
+        <div class="step">
+          <button class="b-back">◀ −25 m</button>
+          <button class="b-fwd">+25 m ▶</button>
+          <button class="exit">✕ Esci</button>
+        </div>
+      </div>
+    `;
+    ui.appendChild(el);
+    this.inspectLabel = el.querySelector('.pos-label');
+    const dSlider = el.querySelector<HTMLInputElement>('.d-slider')!;
+    const hSlider = el.querySelector<HTMLInputElement>('.h-slider')!;
+    dSlider.addEventListener('input', () => { this.inspectD = Number(dSlider.value); });
+    hSlider.addEventListener('input', () => { this.inspectH = Number(hSlider.value); });
+    const step = (delta: number) => {
+      this.inspectD = Math.max(0, Math.min(this.track.totalLength - 1, this.inspectD + delta));
+      dSlider.value = String(Math.round(this.inspectD));
+    };
+    el.querySelector('.b-back')!.addEventListener('click', () => step(-25));
+    el.querySelector('.b-fwd')!.addEventListener('click', () => step(25));
+    el.querySelector('.exit')!.addEventListener('click', () => window.location.reload());
+  }
+
+  /** Aggiorna la camera-drone e i sistemi nella modalità ispettore. */
+  private updateInspector(dt: number): void {
+    const d = this.inspectD;
+    // I sistemi vivono e vengono streamati attorno al punto osservato
+    // (py altissimo: nessuna raccolta o collisione accidentale).
+    this.coins.update(dt, d, 0, 999);
+    this.obstacles.update(dt, d, 0, 999, false);
+    this.enemies.update(dt, d, 0, 999, false);
+    this.powerUps.update(dt, d, 0, 999);
+    const f = this.track.getFrame(d);
+    const cam = this.camera.camera;
+    const h = this.inspectH;
+    cam.position.copyFrom(f.pos)
+      .subtractInPlace(f.forward.scale(h * 0.85))
+      .addInPlace(new Vector3(0, h, 0));
+    cam.setTarget(this.track.toWorld(Math.min(d + 14, this.track.totalLength - 1), 0, 1));
+    cam.rotation.z = 0;
+    if (this.inspectLabel) {
+      const seg = this.track.segmentAt(d).kind;
+      const pct = Math.round((d / this.track.finishD) * 100);
+      this.inspectLabel.textContent = `d ${Math.round(d)} · ${seg} · ${pct}%`;
+    }
   }
 
   private placeCharacterAtStart(): void {
@@ -329,8 +400,16 @@ export class GameController {
 
   private update(dt: number): void {
     this.fx?.update(dt);
-    this.theme.update(dt, this.character.root?.position ?? Vector3.Zero(), this.run.d);
+    this.theme.update(
+      dt,
+      this.phase === 'inspect' ? this.camera.camera.position : (this.character.root?.position ?? Vector3.Zero()),
+      this.phase === 'inspect' ? this.inspectD : this.run.d,
+    );
     this.character.update?.(dt);
+    if (this.phase === 'inspect') {
+      this.updateInspector(dt);
+      return;
+    }
     if (this.phase === 'intro' || this.phase === 'countdown') {
       this.camera.update(dt);
       return;
