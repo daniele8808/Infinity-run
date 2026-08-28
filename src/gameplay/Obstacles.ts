@@ -87,7 +87,7 @@ export class ObstacleSystem {
           const t = rng() < 0.5 ? rock : rock2;
           if (!t) return;
           const inst = t.createInstance(`ob_rock_${d}`);
-          const s = 1.6 + rng() * 1.2;
+          const s = 1.05 + rng() * 0.65;
           inst.scaling.setAll(s);
           node = inst;
           hx = 0.85 * s * 0.7; hd = 0.9; height = 1.1 * s * 0.55;
@@ -160,16 +160,20 @@ export class ObstacleSystem {
     const m = MeshBuilder.CreatePolyhedron(`boulder${seed}`, { type: 3, size: 0.85 }, this.scene);
     const pos = m.getVerticesData(VertexBuffer.PositionKind)!.slice();
     for (let i = 0; i < pos.length; i += 3) {
-      const k = 0.78 + rng() * 0.5;
+      // Perturbazione leggera: resta convesso (variazioni forti creavano
+      // pieghe concave da "foglio accartocciato").
+      const k = 0.9 + rng() * 0.22;
       pos[i] *= k;
-      pos[i + 1] = Math.max(pos[i + 1] * k * 0.8, -0.45);
+      pos[i + 1] = Math.max(pos[i + 1] * k * 0.82, -0.5);
       pos[i + 2] *= k;
     }
     m.setVerticesData(VertexBuffer.PositionKind, pos);
     m.convertToFlatShadedMesh();
     const mat = new StandardMaterial(`boulderMat${seed}`, this.scene);
-    mat.diffuseColor = Color3.FromHexString('#9aa0ab');
-    mat.emissiveColor = Color3.FromHexString('#23262c');
+    // Grigio pietra scuro: con sole + ambiente pieni un grigio chiaro
+    // satura e diventa un blocco bianco.
+    mat.diffuseColor = Color3.FromHexString('#3c4046');
+    mat.emissiveColor = Color3.FromHexString('#0b0c0e');
     mat.specularColor = Color3.Black();
     m.material = mat;
     m.setEnabled(false);

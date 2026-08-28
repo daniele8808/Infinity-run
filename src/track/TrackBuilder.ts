@@ -58,7 +58,9 @@ export class TrackBuilder {
     const rows: { d: number; skip: boolean }[] = [];
     for (let d = -LEAD_IN; d <= t.totalLength + LEAD_OUT; d += SAMPLE) rows.push({ d, skip: false });
 
-    let vi = 0;
+    // Indice reale del primo vertice di ogni riga: le pareti dei fossi
+    // inseriscono vertici extra, quindi niente contatori impliciti.
+    const rowBase: number[] = [];
     const frame = t.getFrame(0);
     const f0 = t.getFrame(0.1);
     const lead = { fwd: f0.forward.clone(), right: f0.right.clone(), pos: f0.pos.clone(), width: f0.width };
@@ -87,6 +89,7 @@ export class TrackBuilder {
       const base = isBridge ? p.bridge : (Math.floor(d / 14) % 2 === 0 ? p.road : p.roadAlt);
 
       // 4 vertici per riga: bordo sx, corsia sx, corsia dx, bordo dx.
+      rowBase.push(positions.length / 3);
       const xs = [-half, -half * 0.82, half * 0.82, half];
       for (let i = 0; i < 4; i++) {
         const wp = frame.pos.add(frame.right.scale(xs[i]));
@@ -99,7 +102,7 @@ export class TrackBuilder {
         const gapHere = d > 0 && (t.isGap(d) || t.isGap(rows[r - 1].d));
         const prevGap = r > 1 && rows[r - 1].d > 0 && (t.isGap(rows[r - 1].d) || t.isGap(rows[r - 2].d));
         if (!gapHere) {
-          const a = vi - 4, b = vi;
+          const a = rowBase[r - 1], b = rowBase[r];
           for (let i = 0; i < 3; i++) {
             indices.push(a + i, b + i, b + i + 1, a + i, b + i + 1, a + i + 1);
           }
@@ -119,14 +122,13 @@ export class TrackBuilder {
             rr.x, rr.y - 4, rr.z,
             l.x, l.y - 4, l.z,
           );
-          // Interno in terra scura: vuoto leggibile senza sembrare un glitch.
-          const c = p.skirt.scale(0.42);
-          colors.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 1, c.r * 0.4, c.g * 0.4, c.b * 0.4, 1, c.r * 0.4, c.g * 0.4, c.b * 0.4, 1);
+          // Interno in terra: parete di scavo chiara e leggibile, mai nera.
+          const c = p.skirt.scale(0.85);
+          colors.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 1, c.r * 0.55, c.g * 0.55, c.b * 0.55, 1, c.r * 0.55, c.g * 0.55, c.b * 0.55, 1);
           normals.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
           indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
       }
-      vi += 4;
     }
 
     const mesh = new Mesh('road', this.scene);
@@ -219,11 +221,17 @@ export class TrackBuilder {
     mat.emissiveColor = glow;
     mat.disableLighting = true;
     const frame = t.getFrame(0);
+    // Stessa griglia di righe della mesh stradale: la striscia sta esattamente
+    // sul labbro del buco, senza "strada finta" tra la striscia e il vuoto.
+    const rowBelow = (x: number) => Math.ceil((x + LEAD_IN) / SAMPLE) * SAMPLE - LEAD_IN - SAMPLE;
+    const rowAbove = (x: number) => Math.floor((x + LEAD_IN) / SAMPLE) * SAMPLE - LEAD_IN + SAMPLE;
     for (const [a, b] of t.gaps) {
-      for (const edgeD of [a - 2.7, b + 2.7]) {
+      const lipNear = rowBelow(a);
+      const lipFar = rowAbove(b);
+      for (const edgeD of [lipNear - 0.45, lipFar + 0.45]) {
         t.getFrame(edgeD, frame);
         const strip = MeshBuilder.CreateBox(`gapGlow_${edgeD}`, {
-          width: frame.width - 0.4, height: 0.1, depth: 0.8,
+          width: frame.width - 0.4, height: 0.1, depth: 0.9,
         }, this.scene);
         strip.position = frame.pos.clone();
         strip.position.y += 0.09;
@@ -233,6 +241,22 @@ export class TrackBuilder {
         strip.parent = this.root;
         strip.freezeWorldMatrix();
       }
+      // Fondo di terra dentro la voragine: il buco si legge come scavo,
+      // non come zona nera senza fine.
+      t.getFrame((a + b) / 2, frame);
+      const floor = MeshBuilder.CreateGround(`gapFloor_${a}`, {
+        width: frame.width + 6, height: (b - a) + 9, subdivisions: 1,
+      }, this.scene);
+      floor.position = frame.pos.clone();
+      floor.position.y -= 2.7;
+      floor.rotation.y = Math.atan2(frame.forward.x, frame.forward.z);
+      const fm = new StandardMaterial(`gapFloorMat_${a}`, this.scene);
+      fm.diffuseColor = this.palette.skirt.scale(0.6);
+      fm.specularColor = Color3.Black();
+      floor.material = fm;
+      floor.isPickable = false;
+      floor.parent = this.root;
+      floor.freezeWorldMatrix();
     }
   }
 
