@@ -1,7 +1,6 @@
-import { Color3, Mesh, MeshBuilder, Scene, StandardMaterial, TransformNode, Vector3 } from '@babylonjs/core';
+import { Color3, Mesh, MeshBuilder, Scene, StandardMaterial, TransformNode, Vector3, VertexBuffer } from '@babylonjs/core';
 import type { TrackSystem } from '../track/TrackSystem';
 import { createRng } from '../core/rng';
-import { loadMergedProp } from '../core/assets';
 import { EntityWindow, placeEntity, type TrackEntity } from './EntityBase';
 
 type ObstacleKind = 'rock' | 'log' | 'barrier' | 'slider';
@@ -30,13 +29,15 @@ export class ObstacleSystem {
   private time = 0;
   onHit: ((o: Obstacle) => void) | null = null;
 
-  constructor(private scene: Scene, private track: TrackSystem, private assetPath: string) {}
+  constructor(private scene: Scene, private track: TrackSystem, _assetPath: string) {}
 
   async build(): Promise<void> {
     const rng = createRng(808);
     const root = new TransformNode('obstacles', this.scene);
-    const rock = await loadMergedProp(this.scene, `${this.assetPath}/stone_4.glb`, 'obst_rock');
-    const rock2 = await loadMergedProp(this.scene, `${this.assetPath}/stone_5.glb`, 'obst_rock2');
+    // Massi procedurali: icosaedro perturbato flat-shaded, solido da ogni
+    // angolazione (i sassi del pack, ingranditi, mostravano facce concave).
+    const rock = this.makeBoulder(11);
+    const rock2 = this.makeBoulder(77);
 
     const woodMat = new StandardMaterial('logMat', this.scene);
     woodMat.diffuseColor = Color3.FromHexString('#8a5a33');
@@ -151,6 +152,28 @@ export class ObstacleSystem {
       }
     }
     this.window.finalize();
+  }
+
+  /** Masso low-poly convesso generato proceduralmente. */
+  private makeBoulder(seed: number): Mesh {
+    const rng = createRng(seed);
+    const m = MeshBuilder.CreatePolyhedron(`boulder${seed}`, { type: 3, size: 0.85 }, this.scene);
+    const pos = m.getVerticesData(VertexBuffer.PositionKind)!.slice();
+    for (let i = 0; i < pos.length; i += 3) {
+      const k = 0.78 + rng() * 0.5;
+      pos[i] *= k;
+      pos[i + 1] = Math.max(pos[i + 1] * k * 0.8, -0.45);
+      pos[i + 2] *= k;
+    }
+    m.setVerticesData(VertexBuffer.PositionKind, pos);
+    m.convertToFlatShadedMesh();
+    const mat = new StandardMaterial(`boulderMat${seed}`, this.scene);
+    mat.diffuseColor = Color3.FromHexString('#9aa0ab');
+    mat.emissiveColor = Color3.FromHexString('#23262c');
+    mat.specularColor = Color3.Black();
+    m.material = mat;
+    m.setEnabled(false);
+    return m;
   }
 
   private yawAt(d: number): number {
