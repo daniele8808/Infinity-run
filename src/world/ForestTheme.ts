@@ -1,6 +1,6 @@
 import {
-  Color3, Color4, DynamicTexture, Mesh, MeshBuilder, ParticleSystem, Scene,
-  StandardMaterial, Texture, TransformNode, Vector3, VertexBuffer,
+  Color3, Color4, DynamicTexture, Matrix, Mesh, MeshBuilder, ParticleSystem,
+  Quaternion, Scene, StandardMaterial, Texture, TransformNode, Vector3, VertexBuffer,
 } from '@babylonjs/core';
 import type { TrackSystem } from '../track/TrackSystem';
 import type { TrackPalette } from '../track/TrackBuilder';
@@ -159,7 +159,7 @@ export class ForestTheme {
     this.buildAmbientParticles();
   }
 
-  update(dt: number, playerPos: Vector3, playerD = 0): void {
+  update(dt: number, playerPos: Vector3, _playerD = 0): void {
     this.time += dt;
     // Skybox vero: la cupola celeste (e la luna) restano centrate su chi
     // guarda, ovunque arrivi il percorso.
@@ -167,15 +167,8 @@ export class ForestTheme {
     for (const b of this.skyBodies) {
       b.mesh.position.set(playerPos.x + b.offset.x, b.offset.y, playerPos.z + b.offset.z);
     }
-    // Streaming: solo la vegetazione entro ~600 m resta attiva.
-    this.cullAcc += dt;
-    if (this.cullAcc > 0.35 && this.propInstances.length) {
-      this.cullAcc = 0;
-      for (const p of this.propInstances) {
-        const on = p.d > playerD - 120 && p.d < playerD + 620;
-        if (on !== p.on) { p.on = on; p.node.setEnabled(on); }
-      }
-    }
+    // La vegetazione e' in thin instances: una mesh per specie, nessuno
+    // streaming per-prop necessario.
     for (const c of this.clouds) c.node.position.x += c.speed * dt;
     if (this.ambientPs) {
       (this.ambientPs.emitter as Vector3).copyFrom(playerPos);
@@ -355,6 +348,11 @@ export class ForestTheme {
     const totalWeight = PROPS.reduce((a, p) => a + p.weight, 0);
     const frame = this.track.getFrame(0);
     const flowersAnchors: Vector3[] = [];
+    // Thin instances: UNA mesh attiva per specie invece di centinaia di
+    // istanze. L'overhead per-mesh di Babylon (frustum, isReady, sort) era
+    // il vero collo di bottiglia degli fps su mobile.
+    const matrices = new Map<Mesh, number[]>();
+    const scratch = new Matrix();
     for (let d = 4; d < this.track.totalLength; d += 5.5) {
       this.track.getFrame(d, frame);
       const seg = this.track.segmentAt(d);
@@ -372,27 +370,35 @@ export class ForestTheme {
         const t = Math.min(1, (off - frame.width / 2) / 22);
         const th = this.terrainHeightAt(pos.x, pos.z);
         pos.y = frame.pos.y * (1 - t * 0.9) + (th + 0.05) * t * 0.9 - 0.05;
-        const inst = tpl.createInstance(`p_${spec.file}_${d}_${side}`);
-        inst.position = pos;
         const s = spec.scale[0] + rng() * (spec.scale[1] - spec.scale[0]);
-        inst.scaling.setAll(s);
-        inst.rotation.y = rng() * Math.PI * 2;
-        inst.isPickable = false;
-        inst.parent = this.root;
-        inst.freezeWorldMatrix();
-        this.propInstances.push({ node: inst, d, on: true });
+        Matrix.ComposeToRef(
+          new Vector3(s, s, s),
+          Quaternion.RotationYawPitchRoll(rng() * Math.PI * 2, 0, 0),
+          pos,
+          scratch,
+        );
+        let arr = matrices.get(tpl);
+        if (!arr) { arr = []; matrices.set(tpl, arr); }
+        const base = arr.length;
+        arr.length = base + 16;
+        scratch.copyToArray(arr, base);
         if (spec.file.startsWith('flower') && flowersAnchors.length < 14 && rng() < 0.4) {
           flowersAnchors.push(pos.clone());
         }
       }
     }
+    for (const [tpl, arr] of matrices) {
+      tpl.thinInstanceSetBuffer('matrix', new Float32Array(arr), 16, true);
+      tpl.thinInstanceRefreshBoundingInfo(false);
+      tpl.isPickable = false;
+      tpl.parent = this.root;
+      tpl.setEnabled(true);
+      tpl.alwaysSelectAsActiveMesh = true;
+    }
     this.flowerAnchors = flowersAnchors;
   }
 
   private flowerAnchors: Vector3[] = [];
-  /** Prop del percorso con la loro distanza d, per lo streaming. */
-  private propInstances: { node: { setEnabled(b: boolean): void }; d: number; on: boolean }[] = [];
-  private cullAcc = 99;
 
   private async buildClouds(): Promise<void> {
     const rng = createRng(99);

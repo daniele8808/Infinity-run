@@ -1,6 +1,6 @@
 import {
-  Color3, Color4, Mesh, MeshBuilder, Scene, StandardMaterial, TransformNode,
-  Vector3, VertexData,
+  Color3, Color4, Matrix, Mesh, MeshBuilder, Scene, StandardMaterial,
+  TransformNode, Vector3, VertexData,
 } from '@babylonjs/core';
 import type { TrackSystem } from './TrackSystem';
 
@@ -320,7 +320,9 @@ export class TrackBuilder {
     const t = this.track;
     const mat = this.makeMat('railMat');
     mat.diffuseColor = this.palette.rail;
-    let template: Mesh | null = null;
+    // Paletti in thin instances: una sola mesh attiva per tutti i ponti.
+    const postMatrices: number[] = [];
+    const scratch = Matrix.Identity();
     const frame = t.getFrame(0);
     for (const seg of t.plan) {
       if (seg.kind !== 'bridge' && seg.kind !== 'narrow') continue;
@@ -330,16 +332,10 @@ export class TrackBuilder {
           t.getFrame(d, frame);
           const half = frame.width / 2 - 0.18;
           const base = frame.pos.add(frame.right.scale(side * half));
-          if (!template) {
-            template = MeshBuilder.CreateBox('railPost', { width: 0.22, height: 1.0, depth: 0.22 }, this.scene);
-            template.material = mat;
-            template.parent = this.root;
-          }
-          const inst = template.createInstance(`rail_${d}_${side}`);
-          inst.position = base.clone();
-          inst.position.y += 0.46;
-          inst.parent = this.root;
-          inst.freezeWorldMatrix();
+          Matrix.TranslationToRef(base.x, base.y + 0.46, base.z, scratch);
+          const at = postMatrices.length;
+          postMatrices.length = at + 16;
+          scratch.copyToArray(postMatrices, at);
           const top = base.clone();
           top.y += 0.96;
           pathPoints.push(top);
@@ -352,7 +348,14 @@ export class TrackBuilder {
         }
       }
     }
-    if (template) template.setEnabled(false);
+    if (postMatrices.length) {
+      const template = MeshBuilder.CreateBox('railPost', { width: 0.22, height: 1.0, depth: 0.22 }, this.scene);
+      template.material = mat;
+      template.parent = this.root;
+      template.isPickable = false;
+      template.thinInstanceSetBuffer('matrix', new Float32Array(postMatrices), 16, true);
+      template.thinInstanceRefreshBoundingInfo(false);
+    }
     this.buildBridgeAprons();
   }
 

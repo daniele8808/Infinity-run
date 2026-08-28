@@ -231,6 +231,10 @@ html, body {
 .pause-overlay button:active { transform: scale(.96); }
 
 /* Impostazioni protette (menu) */
+.menu-version {
+  position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 16px;
+  font-size: 12px; font-weight: 700; opacity: .45;
+}
 .admin-btn {
   position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); right: 16px;
   width: 44px; height: 44px; border-radius: 50%;
