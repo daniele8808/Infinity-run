@@ -6,6 +6,8 @@ import type { TrackSystem } from './TrackSystem';
 
 /** Palette del nastro stradale (sovrascrivibile dal tema). */
 export interface TrackPalette {
+  /** Colore della striscia luminosa che segnala i bordi delle voragini. */
+  gapGlow?: Color3;
   road: Color3;
   roadAlt: Color3;
   edge: Color3;
@@ -31,6 +33,7 @@ export class TrackBuilder {
   constructor(private scene: Scene, private track: TrackSystem, private palette: TrackPalette) {
     this.root = new TransformNode('trackRoot', scene);
     this.buildRoad();
+    this.buildGapMarkers();
     this.buildCaps();
     this.buildRails();
     this.buildCanyonWalls();
@@ -180,6 +183,34 @@ export class TrackBuilder {
     mesh.material = mat;
     mesh.parent = this.root;
     mesh.freezeWorldMatrix();
+  }
+
+  /**
+   * Strisce luminose sul bordo delle voragini: il salto si legge con
+   * chiarezza anche di notte o in controluce.
+   */
+  private buildGapMarkers(): void {
+    const t = this.track;
+    const glow = this.palette.gapGlow ?? Color3.FromHexString('#ffd166');
+    const mat = new StandardMaterial('gapGlowMat', this.scene);
+    mat.emissiveColor = glow;
+    mat.disableLighting = true;
+    const frame = t.getFrame(0);
+    for (const [a, b] of t.gaps) {
+      for (const edgeD of [a - 1.1, b + 1.1]) {
+        t.getFrame(edgeD, frame);
+        const strip = MeshBuilder.CreateBox(`gapGlow_${edgeD}`, {
+          width: frame.width - 0.5, height: 0.06, depth: 0.5,
+        }, this.scene);
+        strip.position = frame.pos.clone();
+        strip.position.y += 0.06;
+        strip.rotation.y = Math.atan2(frame.forward.x, frame.forward.z);
+        strip.material = mat;
+        strip.isPickable = false;
+        strip.parent = this.root;
+        strip.freezeWorldMatrix();
+      }
+    }
   }
 
   /**
