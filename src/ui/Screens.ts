@@ -167,6 +167,7 @@ export class Screens {
       <div class="results-card">
         <div class="row total"><span>${s.score}</span><b>${stats.score.toLocaleString('it-IT')}</b></div>
         <div class="row"><span>${s.collectibles}</span><b>${stats.coins} / ${stats.coinsTotal}</b></div>
+        <div class="row"><span>${s.missed ?? 'Mancati'}</span><b>${Math.max(0, stats.coinsTotal - stats.coins)}</b></div>
         <div class="row"><span>${s.powerupsTaken}</span><b>${stats.powerUps}</b></div>
         <div class="row"><span>${s.time}</span><b>${fmtTime(stats.timeSeconds)}</b></div>
         <div class="row"><span>${s.bestCombo}</span><b>x${stats.bestCombo}</b></div>

@@ -23,6 +23,8 @@ export class Hud {
   private fpsEl: HTMLElement | null = null;
   private chips = new Map<string, { el: HTMLElement; bar: HTMLElement }>();
   private maxLives: number;
+  /** Chiamata quando l'utente tocca il bottone pausa. */
+  onPause: (() => void) | null = null;
 
   constructor(parent: HTMLElement, private cfg: GameConfig) {
     this.maxLives = cfg.rules.startingLives;
@@ -39,9 +41,11 @@ export class Hud {
       <div class="hud-progress"><div class="fill"></div><div class="marker"></div></div>
       <div class="hud-hint">${isTouch ? cfg.strings.controlsHintMobile : cfg.strings.controlsHint}</div>
       <div class="hud-powerups"></div>
+      <button class="hud-pause" aria-label="Pausa">II</button>
       ${cfg.game.debugFps ? '<div class="hud-fps">-- fps</div>' : ''}
     `;
     parent.appendChild(this.root);
+    this.root.querySelector('.hud-pause')!.addEventListener('click', () => this.onPause?.());
     this.livesEl = this.root.querySelector('.hud-lives')!;
     this.scoreEl = this.root.querySelector('.hud-score .value')!;
     this.multEl = this.root.querySelector('.hud-score .mult')!;

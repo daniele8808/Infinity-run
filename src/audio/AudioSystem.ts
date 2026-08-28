@@ -23,6 +23,7 @@ export class AudioSystem {
   private activeSource: AudioBufferSourceNode | null = null;
   private activeGain: GainNode | null = null;
   private loopCache = new Map<string, AudioBuffer>();
+  private musicOn = true;
 
   constructor(private cfg: AudioConfig) {}
 
@@ -38,7 +39,7 @@ export class AudioSystem {
     this.sfxGain.gain.value = this.cfg.sfxVolume;
     this.sfxGain.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = this.cfg.musicVolume;
+    this.musicGain.gain.value = this.musicOn ? this.cfg.musicVolume : 0;
     this.musicGain.connect(this.ctx.destination);
     this.loadFiles();
   }
@@ -175,6 +176,13 @@ export class AudioSystem {
       }
     })();
   }
+
+  /** Attiva/disattiva la musica (gli effetti restano attivi). */
+  setMusicEnabled(on: boolean): void {
+    this.musicOn = on;
+    if (this.musicGain) this.musicGain.gain.value = on ? this.cfg.musicVolume : 0;
+  }
+  get musicEnabled(): boolean { return this.musicOn; }
 
   stopMusic(): void {
     if (this.sectionTimer !== null) { clearInterval(this.sectionTimer); this.sectionTimer = null; }

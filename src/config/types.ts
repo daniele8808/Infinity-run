@@ -154,6 +154,12 @@ export interface EnvironmentConfig {
   theme: string;
   /** Cartella asset del tema. */
   assetPath: string;
+  /** Modello 3D (glb) piazzato oltre il traguardo come meta scenografica. */
+  finishModel?: string;
+  /** Altezza in metri a cui scalare il modello del traguardo. */
+  finishModelHeight?: number;
+  /** Modelli glb usati come rocce-ostacolo (sostituibili per brand). */
+  rockModels?: string[];
 }
 
 export interface StringsConfig {

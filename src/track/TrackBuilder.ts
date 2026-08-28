@@ -39,6 +39,8 @@ export class TrackBuilder {
     this.buildRails();
     this.buildCanyonWalls();
     this.buildWater();
+    // Materiali statici: congelati per risparmiare ricompilazioni per-frame.
+    for (const m of this.root.getChildMeshes()) m.material?.freeze();
   }
 
   private makeMat(name: string, opts?: { specular?: number }): StandardMaterial {

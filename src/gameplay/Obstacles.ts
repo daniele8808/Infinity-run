@@ -1,6 +1,7 @@
 import { Color3, Mesh, MeshBuilder, Scene, StandardMaterial, TransformNode, Vector3, VertexBuffer } from '@babylonjs/core';
 import type { TrackSystem } from '../track/TrackSystem';
 import { createRng } from '../core/rng';
+import { loadMergedProp } from '../core/assets';
 import { EntityWindow, placeEntity, type TrackEntity } from './EntityBase';
 
 type ObstacleKind = 'rock' | 'log' | 'barrier' | 'slider';
@@ -29,15 +30,24 @@ export class ObstacleSystem {
   private time = 0;
   onHit: ((o: Obstacle) => void) | null = null;
 
-  constructor(private scene: Scene, private track: TrackSystem, _assetPath: string) {}
+  constructor(private scene: Scene, private track: TrackSystem, _assetPath: string, private rockModels: string[] = []) {}
 
   async build(): Promise<void> {
     const rng = createRng(808);
     const root = new TransformNode('obstacles', this.scene);
-    // Massi procedurali: icosaedro perturbato flat-shaded, solido da ogni
-    // angolazione (i sassi del pack, ingranditi, mostravano facce concave).
-    const rock = this.makeBoulder(11);
-    const rock2 = this.makeBoulder(77);
+    // Rocce: modelli low-poly del pack (KayKit), normalizzati sulla
+    // dimensione massima (alcuni sono lastre larghe e basse); collisioni
+    // calcolate dalle misure reali. Fallback procedurale se non caricano.
+    const rocks: { mesh: Mesh; hx: number; height: number }[] = [];
+    for (const url of this.rockModels) {
+      try {
+        const m = await loadMergedProp(this.scene, url, `rock_${rocks.length}`);
+        if (m) rocks.push(this.normalizeRock(m));
+      } catch { /* fallback sotto */ }
+    }
+    if (!rocks.length) {
+      rocks.push(this.normalizeRock(this.makeBoulder(11)), this.normalizeRock(this.makeBoulder(77)));
+    }
 
     const woodMat = new StandardMaterial('logMat', this.scene);
     woodMat.diffuseColor = Color3.FromHexString('#8a5a33');
@@ -84,13 +94,14 @@ export class ObstacleSystem {
       let hx = 1, hd = 1, height = 1;
       switch (kind) {
         case 'rock': {
-          const t = rng() < 0.5 ? rock : rock2;
+          const t = rocks[Math.floor(rng() * rocks.length)];
           if (!t) return;
-          const inst = t.createInstance(`ob_rock_${d}`);
-          const s = 1.05 + rng() * 0.65;
+          const inst = t.mesh.createInstance(`ob_rock_${d}`);
+          const s = 1.0 + rng() * 0.6;
           inst.scaling.setAll(s);
           node = inst;
-          hx = 0.85 * s * 0.7; hd = 0.9; height = 1.1 * s * 0.55;
+          hx = t.hx * s * 0.85; hd = 0.9;
+          height = Math.max(0.6, t.height * s * 0.8);
           break;
         }
         case 'log': {
@@ -107,12 +118,13 @@ export class ObstacleSystem {
           break;
         }
         case 'slider': {
-          const t = rock ?? rock2;
+          const t = rocks[0];
           if (!t) return;
-          const inst = t.createInstance(`ob_slider_${d}`);
-          inst.scaling.setAll(1.5);
+          const inst = t.mesh.createInstance(`ob_slider_${d}`);
+          inst.scaling.setAll(1.4);
           node = inst;
-          hx = 0.95; hd = 0.95; height = 1.3;
+          hx = t.hx * 1.4 * 0.8; hd = 0.95;
+          height = Math.max(0.8, t.height * 1.4 * 0.8);
           break;
         }
       }
@@ -152,6 +164,29 @@ export class ObstacleSystem {
       }
     }
     this.window.finalize();
+  }
+
+  /**
+   * Normalizza un modello roccia: dimensione massima ~1.5m (alcune rocce
+   * del pack sono lastre larghe e basse), base a y=0, centrata. Restituisce
+   * le misure reali per una collisione onesta.
+   */
+  private normalizeRock(m: Mesh): { mesh: Mesh; hx: number; height: number } {
+    const bb = m.getBoundingInfo().boundingBox;
+    const dx = bb.maximum.x - bb.minimum.x;
+    const dy = bb.maximum.y - bb.minimum.y;
+    const dz = bb.maximum.z - bb.minimum.z;
+    const s = 1.5 / Math.max(0.001, dx, dy, dz);
+    const cx = (bb.minimum.x + bb.maximum.x) / 2;
+    const cz = (bb.minimum.z + bb.maximum.z) / 2;
+    m.position.set(-cx * s, -bb.minimum.y * s, -cz * s);
+    m.scaling.setAll(s);
+    m.bakeCurrentTransformIntoVertices();
+    m.refreshBoundingInfo();
+    // Molti sassi low-poly hanno il fondo aperto: senza doppia faccia
+    // sembrano gusci vuoti appena crescono di scala.
+    if (m.material) (m.material as StandardMaterial).backFaceCulling = false;
+    return { mesh: m, hx: (Math.max(dx, dz) * s) / 2, height: dy * s };
   }
 
   /** Masso low-poly convesso generato proceduralmente. */
