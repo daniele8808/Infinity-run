@@ -293,6 +293,7 @@ export class ForestTheme {
     mat.diffuseColor = Color3.White();
     mat.specularColor = Color3.Black();
     ground.material = mat;
+    mat.freeze();
     ground.isPickable = false;
     ground.parent = this.root;
     ground.freezeWorldMatrix();

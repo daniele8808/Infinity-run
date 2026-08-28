@@ -125,8 +125,10 @@ html, body {
   position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
   font-size: 15px; font-weight: 600;
   opacity: .85; text-shadow: 0 2px 4px rgba(0,0,0,.6);
-  background: rgba(0,0,0,.3); border-radius: 999px; padding: 6px 16px;
+  background: rgba(0,0,0,.3); border-radius: 18px; padding: 6px 16px;
   transition: opacity 1s;
+  /* Centrata anche quando il testo va su due righe. */
+  text-align: center; width: max-content; max-width: 88vw;
 }
 .hud-hint.fade { opacity: 0; }
 
@@ -140,6 +142,41 @@ html, body {
   pointer-events: none;
 }
 .hud-fps.low { color: #ff8080; }
+
+.hud-pause {
+  position: absolute; top: 96px; left: 20px;
+  width: 42px; height: 42px; border-radius: 50%;
+  border: none; font-family: var(--font);
+  font-size: 15px; font-weight: 900; letter-spacing: 2px;
+  color: #fff; background: rgba(0,0,0,.45);
+  pointer-events: auto; cursor: pointer;
+}
+.hud-pause:active { transform: scale(.92); }
+
+/* Overlay pausa */
+.pause-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px;
+  background: rgba(8, 10, 16, .62);
+  backdrop-filter: blur(5px);
+  pointer-events: auto;
+  z-index: 30;
+}
+.pause-overlay h2 {
+  font-size: clamp(30px, 6vw, 52px); font-weight: 900; letter-spacing: 3px;
+  color: var(--primary); margin-bottom: 8px;
+}
+.pause-overlay button {
+  font-family: var(--font);
+  font-size: 17px; font-weight: 800;
+  min-width: min(280px, 70vw);
+  padding: 13px 26px; border: none; border-radius: 14px;
+  cursor: pointer;
+  color: #fff; background: rgba(255,255,255,.12);
+}
+.pause-overlay button.primary { background: var(--primary); color: #1a1206; }
+.pause-overlay button:active { transform: scale(.96); }
 
 /* Messaggi centrali */
 .center-msg {

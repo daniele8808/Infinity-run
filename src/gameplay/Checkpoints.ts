@@ -78,7 +78,7 @@ export class CheckpointSystem {
 export class FinishGate {
   root: TransformNode;
 
-  constructor(private scene: Scene, private track: TrackSystem, primary: Color3, secondary: Color3, label: string, finishLabel = 'TRAGUARDO') {
+  constructor(private scene: Scene, private track: TrackSystem, primary: Color3, secondary: Color3, label: string) {
     const d = this.track.finishD;
     const frame = this.track.getFrame(d);
     this.root = new TransformNode('finishGate', this.scene);
@@ -95,7 +95,7 @@ export class FinishGate {
       pillar.material = pillarMat;
       pillar.parent = this.root;
     }
-    this.buildFinishDressing(half, primary, secondary, finishLabel);
+    this.buildFinishDressing(half, primary, secondary);
     // Insegna con testo su DynamicTexture.
     const banner = MeshBuilder.CreatePlane('finishBanner', { width: half * 2 + 3.2, height: 1.6 }, this.scene);
     banner.position.y = 7.5;
@@ -142,8 +142,8 @@ export class FinishGate {
     arch.parent = this.root;
   }
 
-  /** Scenografia del traguardo: scacchi, cartello dedicato e bandierine. */
-  private buildFinishDressing(half: number, primary: Color3, secondary: Color3, finishLabel: string): void {
+  /** Scenografia del traguardo: linea a scacchi e bandierine. */
+  private buildFinishDressing(half: number, primary: Color3, secondary: Color3): void {
     // Texture a scacchi bianco/nero riusata da linea e cartello.
     const checkerTex = new DynamicTexture('finishCheckerTex', { width: 512, height: 128 }, this.scene, false);
     const cctx = checkerTex.getContext() as CanvasRenderingContext2D;
@@ -165,43 +165,6 @@ export class FinishGate {
     line.position.y = 0.06;
     line.material = checkerMat;
     line.parent = this.root;
-
-    // Cartello "TRAGUARDO" tra i pali, con cornici a scacchi sopra e sotto.
-    const signW = half * 2 + 1.6;
-    const sign = MeshBuilder.CreatePlane('finishSign', { width: signW, height: 2.1 }, this.scene);
-    sign.position.y = 5.1;
-    sign.rotation.y = Math.PI;
-    const stex = new DynamicTexture('finishSignTex', { width: 1024, height: 256 }, this.scene, true);
-    stex.uScale = -1;
-    stex.uOffset = 1;
-    const sctx = stex.getContext() as CanvasRenderingContext2D;
-    sctx.fillStyle = '#ffffff';
-    sctx.fillRect(0, 0, 1024, 256);
-    for (const rowY of [0, 256 - 36]) {
-      for (let cx = 0; cx < 1024 / 36 + 1; cx++) {
-        sctx.fillStyle = cx % 2 === 0 ? '#1c1c22' : '#ffffff';
-        sctx.fillRect(cx * 36, rowY, 36, 36);
-      }
-    }
-    sctx.fillStyle = '#1c1c22';
-    sctx.textAlign = 'center';
-    sctx.textBaseline = 'middle';
-    sctx.font = 'bold 110px Trebuchet MS, sans-serif';
-    let tw = sctx.measureText(finishLabel).width;
-    if (!(tw > finishLabel.length * 24)) tw = finishLabel.length * 66;
-    const sq = Math.min(1, 920 / tw);
-    sctx.save();
-    sctx.translate(512, 128);
-    sctx.scale(sq, 1);
-    sctx.fillText(finishLabel, 0, 0);
-    sctx.restore();
-    stex.update();
-    const signMat = new StandardMaterial('finishSignMat', this.scene);
-    signMat.emissiveTexture = stex;
-    signMat.disableLighting = true;
-    signMat.backFaceCulling = false;
-    sign.material = signMat;
-    sign.parent = this.root;
 
     // Festoni di bandierine tra i pali (due corde con leggera catenaria).
     const flagMats = [primary, secondary, Color3.White()].map((c, i) => {

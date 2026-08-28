@@ -130,7 +130,6 @@
   },
   "strings": {
     "loading": "Caricamento…",
-    "finishLine": "TRAGUARDO",
     "tapToStart": "Tocca per iniziare",
     "insertName": "INSERISCI IL TUO NOME",
     "play": "GIOCA",
@@ -161,7 +160,14 @@
     "controlsHintMobile": "Trascina per muoverti · Tocca per saltare",
     "iosInstallHint": "📲 Schermo intero su iPhone: apri in Safari → Condividi → Aggiungi alla schermata Home",
     "chooseHero": "SCEGLI IL TUO EROE",
-    "chooseDuration": "Durata livello"
+    "chooseDuration": "Durata livello",
+    "paused": "PAUSA",
+    "resume": "RIPRENDI",
+    "music": "MUSICA",
+    "on": "SÌ",
+    "off": "NO",
+    "exitGame": "ESCI DAL GIOCO",
+    "missed": "Globi mancati"
   },
   "profiles": [
     {

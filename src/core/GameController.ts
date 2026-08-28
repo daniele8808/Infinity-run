@@ -20,6 +20,7 @@ import { Effects } from '../fx/Effects';
 import { Hud } from '../ui/Hud';
 import { Screens } from '../ui/Screens';
 import { createLeaderboard, type LeaderboardProvider } from '../leaderboard/Leaderboard';
+import { loadMergedProp } from './assets';
 
 type Phase = 'boot' | 'name' | 'intro' | 'countdown' | 'playing' | 'finishing' | 'results' | 'inspect';
 
@@ -56,6 +57,11 @@ export class GameController {
   private inspectH = 34;
   private inspectLabel: HTMLElement | null = null;
   private fpsAcc = 0;
+  // Risoluzione dinamica: 0 = piena (DPR<=2), poi riduzioni progressive.
+  private perfLevel = 0;
+  private perfCalm = 0;
+  private pausedGame = false;
+  private pauseEl: HTMLElement | null = null;
 
   constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string; inspect?: boolean } = {}) {
     applyBrand(cfg);
@@ -68,7 +74,14 @@ export class GameController {
     this.run = new RunController(cfg, this.track, this.character, this.input, this.bus);
     this.camera = new ChaseCamera(this.engine.scene, this.track, this.run);
     this.coins = new CollectibleSystem(this.engine.scene, this.track, cfg.collectible, cfg.movement, this.bus);
-    this.obstacles = new ObstacleSystem(this.engine.scene, this.track, cfg.environment.assetPath);
+    this.obstacles = new ObstacleSystem(
+      this.engine.scene, this.track, cfg.environment.assetPath,
+      cfg.environment.rockModels ?? [
+        'assets/environment/forest/stone_2.glb',
+        'assets/environment/forest/stone_4.glb',
+        'assets/environment/forest/stone_5.glb',
+      ],
+    );
     this.enemies = new EnemySystem(this.engine.scene, this.track, cfg.enemy);
     this.powerUps = new PowerUpSystem(this.engine.scene, this.track, cfg.powerUps, this.bus);
     this.checkpoints = new CheckpointSystem(
@@ -89,6 +102,38 @@ export class GameController {
     const ui = document.getElementById('ui')!;
     this.hud = new Hud(ui, cfg);
     this.screens = new Screens(ui, cfg);
+    this.hud.onPause = () => this.togglePause();
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.togglePause(); });
+  }
+
+  /** Pausa di gioco: overlay con riprendi, musica on/off e uscita. */
+  private togglePause(): void {
+    if (this.phase !== 'playing') return;
+    this.pausedGame = !this.pausedGame;
+    if (!this.pausedGame) {
+      this.pauseEl?.remove();
+      this.pauseEl = null;
+      return;
+    }
+    const s = this.cfg.strings;
+    const el = document.createElement('div');
+    el.className = 'pause-overlay';
+    el.innerHTML = `
+      <h2>${s.paused ?? 'PAUSA'}</h2>
+      <button class="primary resume">${s.resume ?? 'RIPRENDI'}</button>
+      <button class="music"></button>
+      <button class="quit">${s.exitGame ?? 'ESCI DAL GIOCO'}</button>`;
+    const musicBtn = el.querySelector('.music') as HTMLElement;
+    const musicLabel = () => `${s.music ?? 'MUSICA'}: ${this.audio.musicEnabled ? (s.on ?? 'SÌ') : (s.off ?? 'NO')}`;
+    musicBtn.textContent = musicLabel();
+    el.querySelector('.resume')!.addEventListener('click', () => this.togglePause());
+    musicBtn.addEventListener('click', () => {
+      this.audio.setMusicEnabled(!this.audio.musicEnabled);
+      musicBtn.textContent = musicLabel();
+    });
+    el.querySelector('.quit')!.addEventListener('click', () => location.reload());
+    document.getElementById('ui')!.appendChild(el);
+    this.pauseEl = el;
   }
 
   async start(): Promise<void> {
@@ -118,8 +163,8 @@ export class GameController {
       Color3.FromHexString(this.cfg.brand.primaryColor),
       Color3.FromHexString(this.cfg.brand.secondaryColor),
       this.cfg.game.name.toUpperCase(),
-      (this.cfg.strings.finishLine ?? 'TRAGUARDO').toUpperCase(),
     );
+    await this.buildFinishLandmark();
     this.fx = new Effects(this.engine.scene);
     setProgress(1);
 
@@ -190,6 +235,57 @@ export class GameController {
     el.querySelector('.b-back')!.addEventListener('click', () => step(-25));
     el.querySelector('.b-fwd')!.addEventListener('click', () => step(25));
     el.querySelector('.exit')!.addEventListener('click', () => window.location.reload());
+  }
+
+  /**
+   * Risoluzione dinamica: se il telefono non regge, si riduce la risoluzione
+   * di rendering a gradini (la UI resta nitida, è DOM). Si risale piano solo
+   * dopo un periodo prolungato di frame rate alto.
+   */
+  private adaptResolution(fps: number): void {
+    const base = 1 / Math.min(window.devicePixelRatio || 1, 2);
+    const levels = [1, 1.4, 1.8];
+    if (fps < 32 && this.perfLevel < levels.length - 1) {
+      this.perfLevel++;
+      this.perfCalm = 0;
+      this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
+    } else if (fps > 55 && this.perfLevel > 0) {
+      this.perfCalm += 0.5;
+      if (this.perfCalm >= 5) {
+        this.perfLevel--;
+        this.perfCalm = 0;
+        this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
+      }
+    } else {
+      this.perfCalm = 0;
+    }
+  }
+
+  /**
+   * Meta scenografica oltre il traguardo: un castello enorme in fondo alla
+   * strada, visibile da lontano. Modello e altezza sono configurabili.
+   */
+  private async buildFinishLandmark(): Promise<void> {
+    const url = this.cfg.environment.finishModel ?? 'assets/props/castle.glb';
+    if (!url) return;
+    try {
+      const castle = await loadMergedProp(this.engine.scene, url, 'finish_landmark');
+      if (!castle) return;
+      const bb = castle.getBoundingInfo().boundingBox;
+      const h = Math.max(0.001, bb.maximum.y - bb.minimum.y);
+      const scale = (this.cfg.environment.finishModelHeight ?? 26) / h;
+      const f = this.track.getFrame(this.track.totalLength - 0.1);
+      const yaw = Math.atan2(f.forward.x, f.forward.z);
+      castle.scaling.setAll(scale);
+      // Fronte rivolto verso chi arriva, base leggermente affondata.
+      castle.rotation.y = yaw + Math.PI;
+      castle.position.copyFrom(f.pos).addInPlace(f.forward.scale(38));
+      castle.position.y = f.pos.y - bb.minimum.y * scale - 0.35;
+      castle.setEnabled(true);
+      castle.freezeWorldMatrix();
+    } catch (err) {
+      console.warn('Castello del traguardo non caricato:', err);
+    }
   }
 
   /** Aggiorna la camera-drone e i sistemi nella modalità ispettore. */
@@ -409,6 +505,7 @@ export class GameController {
   }
 
   private update(dt: number): void {
+    if (this.pausedGame) return;
     this.fx?.update(dt);
     this.theme.update(
       dt,
@@ -463,12 +560,14 @@ export class GameController {
       // Musica più intensa avvicinandosi al traguardo.
       this.audio.intensity = Math.min(1, this.run.progress * 1.15);
 
-      // Indicatore FPS diagnostico.
+      // Indicatore FPS diagnostico + risoluzione dinamica.
       this.fpsAcc += dt;
       if (this.fpsAcc > 0.5) {
         this.fpsAcc = 0;
+        const fps = this.engine.engine.getFps();
+        this.adaptResolution(fps);
         this.hud.setFps(
-          this.engine.engine.getFps(),
+          fps,
           this.engine.scene.getActiveMeshes().length,
           pd,
           this.track.segmentAt(pd).kind,
