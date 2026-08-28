@@ -438,7 +438,8 @@ export class TrackBuilder {
     const mat = new StandardMaterial('waterMat', this.scene);
     mat.diffuseColor = this.palette.water;
     mat.emissiveColor = this.palette.water.scale(0.35);
-    mat.alpha = 0.85;
+    // Opaca: un piano trasparente di 240m e' fill-rate in blending che
+    // affossa gli fps sui telefoni, e nello stile low-poly non serve.
     mat.specularColor = new Color3(0.5, 0.6, 0.7);
     for (const seg of this.track.plan) {
       if (seg.kind !== 'bridge') continue;

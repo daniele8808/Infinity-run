@@ -24,6 +24,7 @@ export class AudioSystem {
   private activeGain: GainNode | null = null;
   private loopCache = new Map<string, AudioBuffer>();
   private musicOn = true;
+  private lastCoinAt = 0;
 
   constructor(private cfg: AudioConfig) {}
 
@@ -89,6 +90,13 @@ export class AudioSystem {
   play(name: SfxName): void {
     const ctx = this.ctx;
     if (!ctx) return;
+    // A raffica (turbo + monete) un suono per moneta satura il grafo audio
+    // dei telefoni: minimo 80ms tra due suoni-moneta.
+    if (name === 'coin') {
+      const now = ctx.currentTime;
+      if (now - this.lastCoinAt < 0.08) return;
+      this.lastCoinAt = now;
+    }
     const buf = this.buffers.get(name);
     if (buf) {
       const src = ctx.createBufferSource();

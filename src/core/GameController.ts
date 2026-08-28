@@ -66,6 +66,8 @@ export class GameController {
   private boostCharges = 0;
   private boostMeter = 0;
   private boostTimer = 0;
+  private floatAcc = 0;
+  private floatLast = 0;
 
   constructor(canvas: HTMLCanvasElement, private cfg: GameConfig, private opts: { nickname?: string; inspect?: boolean } = {}) {
     applyBrand(cfg);
@@ -276,9 +278,9 @@ export class GameController {
       this.perfLevel++;
       this.perfCalm = 0;
       this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
-    } else if (fps > 55 && this.perfLevel > 0) {
+    } else if (fps > 48 && this.perfLevel > 0) {
       this.perfCalm += 0.5;
-      if (this.perfCalm >= 5) {
+      if (this.perfCalm >= 4) {
         this.perfLevel--;
         this.perfCalm = 0;
         this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
@@ -420,7 +422,17 @@ export class GameController {
     });
     b.on('scoreChanged', ({ score, delta }) => {
       this.hud.setScore(score);
-      if (delta > 0 && delta < 2000) this.hud.floatScore(`+${delta}`);
+      // I "+punti" volanti sono DOM animato sopra il canvas: a raffica
+      // (turbo/magnete) si aggregano e si mostrano al massimo 5 al secondo.
+      if (delta > 0 && delta < 2000) {
+        this.floatAcc += delta;
+        const now = performance.now();
+        if (now - this.floatLast > 200) {
+          this.floatLast = now;
+          this.hud.floatScore(`+${this.floatAcc}`);
+          this.floatAcc = 0;
+        }
+      }
     });
     b.on('comboChanged', ({ multiplier }) => {
       this.hud.setMultiplier(multiplier);
