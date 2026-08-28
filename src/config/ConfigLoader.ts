@@ -55,6 +55,7 @@ export const DEFAULTS: GameConfig = {
   level: { duration: 210, layout: 'auto', checkpoints: [0.25, 0.5, 0.75], trackWidth: 7, seed: 1 },
   environment: { theme: 'forest', assetPath: 'assets/environment/forest' },
   collectible: { model: 'assets/collectibles/coin.glb', score: 100, radius: 1.0, scale: 1.6 },
+  boost: { coinsRequired: 15, duration: 5, factor: 1.5, maxCharges: 3 },
   powerUps: {
     enabled: ['shield', 'magnet', 'doubleScore'],
     durations: { magnet: 9, doubleScore: 10, speedBoost: 6, superJump: 8, invincibility: 6 },

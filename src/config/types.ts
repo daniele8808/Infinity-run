@@ -110,6 +110,18 @@ export interface PowerUpConfig {
   speedBoostFactor: number;
 }
 
+/** Turbo caricato dalle monete e attivato liberamente dal giocatore. */
+export interface BoostConfig {
+  /** Monete necessarie per caricare un turbo (0 = funzione disattivata). */
+  coinsRequired: number;
+  /** Durata del turbo in secondi. */
+  duration: number;
+  /** Moltiplicatore di velocità durante il turbo. */
+  factor: number;
+  /** Numero massimo di cariche accumulabili. */
+  maxCharges: number;
+}
+
 export interface EnemyConfig {
   /** Modello GLB opzionale (fallback: slime procedurale cartoon). */
   model?: string;
@@ -211,6 +223,7 @@ export interface GameConfig {
   level: LevelConfig;
   environment: EnvironmentConfig;
   collectible: CollectibleConfig;
+  boost: BoostConfig;
   powerUps: PowerUpConfig;
   enemy: EnemyConfig;
   scoring: ScoringConfig;
