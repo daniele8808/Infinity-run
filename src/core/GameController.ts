@@ -59,13 +59,14 @@ export class GameController {
   private fpsAcc = 0;
   // Risoluzione dinamica: 0 = piena (DPR<=2), poi riduzioni progressive.
   private perfLevel = 0;
-  private perfCalm = 0;
   private pausedGame = false;
   private pauseEl: HTMLElement | null = null;
   // Turbo caricato dalle monete, attivato liberamente dal giocatore.
   private boostCharges = 0;
   private boostMeter = 0;
   private boostTimer = 0;
+  private boostCooldown = 0;
+  private hudAcc = 0;
   private floatAcc = 0;
   private floatLast = 0;
 
@@ -193,6 +194,7 @@ export class GameController {
     // frame è fill-rate sprecato sui telefoni.
     this.engine.scene.autoClear = false;
     this.fx = new Effects(this.engine.scene);
+    await this.warmUpShaders();
     setProgress(1);
 
     // Ombra del personaggio: solo il disco morbido (l'ombra dinamica
@@ -265,29 +267,51 @@ export class GameController {
   }
 
   /**
-   * Risoluzione dinamica: se il telefono non regge, si riduce la risoluzione
-   * di rendering a gradini (la UI resta nitida, è DOM). Si risale piano solo
-   * dopo un periodo prolungato di frame rate alto.
+   * Risoluzione dinamica CONSERVATIVA. Ogni cambio di scala ridimensiona il
+   * canvas WebGL (rialloca il framebuffer: su iOS e' uno stallo di centinaia
+   * di ms che a sua volta abbassa la media fps). Quindi: si cambia solo dopo
+   * un calo/rialzo PROLUNGATO, mai durante o subito dopo il turbo, con un
+   * periodo di quarantena dopo ogni cambio e al massimo fino a 1.7x.
    */
-  private static readonly PERF_LEVELS = [1, 1.35, 1.7, 2.2];
+  private static readonly PERF_LEVELS = [1, 1.35, 1.7];
+  private perfLow = 0;
+  private perfHigh = 0;
+  private perfQuarantine = 0;
 
-  private adaptResolution(fps: number): void {
-    const base = 1 / Math.min(window.devicePixelRatio || 1, 2);
+  private adaptResolution(fps: number, dt: number): void {
+    if (this.perfQuarantine > 0) { this.perfQuarantine -= dt; return; }
+    // Il turbo e' transitorio: non si insegue con dei resize.
+    if (this.boostTimer > 0 || this.boostCooldown > 0) { this.perfLow = 0; this.perfHigh = 0; return; }
     const levels = GameController.PERF_LEVELS;
-    if (fps < 40 && this.perfLevel < levels.length - 1) {
-      this.perfLevel++;
-      this.perfCalm = 0;
-      this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
-    } else if (fps > 48 && this.perfLevel > 0) {
-      this.perfCalm += 0.5;
-      if (this.perfCalm >= 4) {
-        this.perfLevel--;
-        this.perfCalm = 0;
-        this.engine.engine.setHardwareScalingLevel(base * levels[this.perfLevel]);
-      }
-    } else {
-      this.perfCalm = 0;
+    const base = 1 / Math.min(window.devicePixelRatio || 1, 2);
+    if (fps < 36) { this.perfLow += dt; this.perfHigh = 0; }
+    else if (fps > 52) { this.perfHigh += dt; this.perfLow = 0; }
+    else { this.perfLow = 0; this.perfHigh = 0; }
+    let next = this.perfLevel;
+    if (this.perfLow >= 3 && this.perfLevel < levels.length - 1) next = this.perfLevel + 1;
+    else if (this.perfHigh >= 8 && this.perfLevel > 0) next = this.perfLevel - 1;
+    if (next !== this.perfLevel) {
+      this.perfLevel = next;
+      this.perfLow = 0; this.perfHigh = 0;
+      this.perfQuarantine = 4;
+      this.engine.engine.setHardwareScalingLevel(base * levels[next]);
     }
+  }
+
+  /**
+   * Pre-compila TUTTI gli shader (mesh, istanze, thin instances, particelle)
+   * durante il caricamento. Senza questo ogni materiale nuovo che entra in
+   * scena compila al volo e su iPhone blocca il gioco per centinaia di ms:
+   * col turbo si arriva in zone nuove tutte insieme e i blocchi si sommano
+   * in secondi di freeze.
+   */
+  private async warmUpShaders(): Promise<void> {
+    const scene = this.engine.scene;
+    // Warm-up dei burst particellari: una emissione fuori scena.
+    this.fx.burst(new Vector3(0, -500, 0), Color3.White(), 1, 0.1);
+    const ready = scene.whenReadyAsync(true);
+    const timeout = new Promise<void>((r) => setTimeout(r, 9000));
+    await Promise.race([ready, timeout]);
   }
 
   /**
@@ -584,11 +608,11 @@ export class GameController {
       // Turbo attivo: countdown e ritorno alla velocità normale.
       if (this.boostTimer > 0) {
         this.boostTimer -= dt;
-        this.hud.setPowerUp('speedBoost', Math.max(0, this.boostTimer), this.cfg.boost.duration);
         if (this.boostTimer <= 0) {
           this.run.modifiers.speedFactor = 1;
           this.camera.setFovBoost(false);
           this.hud.removePowerUp('speedBoost');
+          this.boostCooldown = 2;
         }
       }
       const canHit = !this.playerProtected;
@@ -598,10 +622,17 @@ export class GameController {
       this.powerUps.update(dt, pd, px, py);
       this.checkpoints.update(dt, pd);
 
-      // HUD.
-      this.hud.setTime(this.timeLeft);
-      this.hud.setProgress(this.run.progress);
-      for (const [kind, s] of this.powerUps.active) this.hud.setPowerUp(kind, s.remaining, s.duration);
+      // HUD: e' DOM sopra il canvas, aggiornarlo a ogni frame costa layout e
+      // compositing su mobile. 10 aggiornamenti al secondo bastano.
+      if (this.boostCooldown > 0) this.boostCooldown -= dt;
+      this.hudAcc += dt;
+      if (this.hudAcc >= 0.1) {
+        this.hudAcc = 0;
+        this.hud.setTime(this.timeLeft);
+        this.hud.setProgress(this.run.progress);
+        for (const [kind, s] of this.powerUps.active) this.hud.setPowerUp(kind, s.remaining, s.duration);
+        if (this.boostTimer > 0) this.hud.setPowerUp('speedBoost', Math.max(0, this.boostTimer), this.cfg.boost.duration);
+      }
 
       // Lampeggio invulnerabilità.
       const blink = this.run.invulnerable > 0 && Math.floor(this.run.invulnerable * 10) % 2 === 0;
@@ -627,7 +658,7 @@ export class GameController {
       if (this.fpsAcc > 0.5) {
         this.fpsAcc = 0;
         const fps = this.engine.engine.getFps();
-        this.adaptResolution(fps);
+        this.adaptResolution(fps, 0.5);
         this.hud.setFps(
           fps,
           this.engine.scene.getActiveMeshes().length,
